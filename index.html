@@ -263,11 +263,9 @@
   <h2><span class="hole">4</span> Tee It Up</h2>
   <div class="gen-bar">
     <button class="go" id="goBtn" onclick="generate()" title="Solve for teams: zero repeats first, granted preferences second">Generate pairings</button>
-    <button class="toolbtn" onclick="saveSetup()" title="Download roster, event names, and preferences as a file (not the teams)">Save setup</button>
-    <button class="toolbtn" onclick="loadFile.click()" title="Restore a saved setup file">Load setup</button>
-    <button class="toolbtn" onclick="loadPairFile.click()" title="Restore a saved pairing file — teams come back fully editable">Load pairing</button>
-    <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadSetup(this)">
-    <input type="file" id="loadPairFile" accept=".json" style="display:none" onchange="loadPairing(this)">
+    <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, and the teams if you've generated them">Save</button>
+    <button class="toolbtn" onclick="loadFile.click()" title="Load a saved file — restores everything, teams included if the file has them">Load</button>
+    <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadAll(this)">
     <span class="status" id="status">Ready when you are.</span>
   </div>
 </section>
@@ -288,8 +286,7 @@
       <h4>Controls</h4>
       <ul>
         <li><b>Weight slider (1&ndash;10)</b> &mdash; how hard the solver tries to grant a wish; 10 is top priority, but no weight can force a repeat</li>
-        <li><b>Save/Load setup</b> &mdash; the ingredients: roster, event names, preferences (no teams)</li>
-        <li><b>Save/Load pairing</b> &mdash; the finished teams, restored fully editable</li>
+        <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, and the teams if you've generated them. Load it and you're back exactly where you left off</li>
         <li><b>Copy / CSV / Text / Print</b> &mdash; exports the sheet exactly as shown, including your hand-swaps</li>
       </ul>
     </div>
@@ -526,7 +523,7 @@ function renderState(scroll){
     <div class="rbox"><h4>Preference results</h4><ul>${prefHtml}</ul></div>
   </div>
   <div class="export-bar">
-    <button class="toolbtn" onclick="savePairing()" title="Download these exact teams (including hand-swaps) to reload and edit later">Save pairing</button>
+    <button class="toolbtn" onclick="saveAll()" title="Same Save as up top — one file with everything, including these teams and your hand-swaps">Save</button>
     <button class="toolbtn" onclick="copyResults()" title="Copy the teams as plain text — paste into a group chat or email">Copy as text</button>
     <button class="toolbtn" onclick="downloadCSV()" title="Download a spreadsheet-ready file (opens in Excel)">Download CSV</button>
     <button class="toolbtn" onclick="downloadText()" title="Download the teams as a plain .txt file">Download text</button>
@@ -565,17 +562,23 @@ function dl(filename, text, type){
   document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
 }
-function saveSetup(){
-  const setup = {
-    type: "cross-creek-setup",
+function saveAll(){
+  const out = {
+    type: "cross-creek-save",
     roster: {A:tA.value, B:tB.value, C:tC.value, D:tD.value},
     events: [...document.querySelectorAll("#events input")].map(i=>i.value),
     prefs: [...document.querySelectorAll(".pref-row")].map(r=>({
       a:r.querySelector(".p1").value, b:r.querySelector(".p2").value,
       w:+r.querySelector("input[type=range]").value }))
   };
-  dl("cross-creek-setup.json", JSON.stringify(setup,null,2), "application/json");
-  status.textContent = "Setup saved — keep the file, load it next year.";
+  if(STATE){
+    out.roster = {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")};
+    out.events = STATE.eventNames;
+    out.teams = STATE.teams;
+  }
+  dl("cross-creek.json", JSON.stringify(out,null,2), "application/json");
+  status.textContent = STATE ? "Saved — roster, preferences, and teams, all in one file."
+                             : "Saved — roster and preferences (generate teams and save again to include them).";
 }
 function applySetup(s){
   if(s.roster){ tA.value=s.roster.A||""; tB.value=s.roster.B||""; tC.value=s.roster.C||""; tD.value=s.roster.D||""; }
@@ -583,55 +586,29 @@ function applySetup(s){
   document.getElementById("prefs").innerHTML=""; prefCount=0;
   (s.prefs||[]).forEach(p=>addPref(p.a,p.b,p.w));
 }
-function loadSetup(inp){
+function loadAll(inp){
   const f = inp.files[0]; if(!f) return;
   const rd = new FileReader();
   rd.onload = () => {
     try{
       const s = JSON.parse(rd.result);
-      if(s.type==="cross-creek-pairing"){ importPairing(s); return; }
       applySetup(s);
-      status.textContent = "Setup loaded.";
-    }catch(e){ status.textContent = "That file didn't look like a Cross Creek setup."; }
-  };
-  rd.readAsText(f); inp.value="";
-}
-function savePairing(){
-  if(!STATE){ status.textContent="Generate pairings first."; return; }
-  const out = {
-    type: "cross-creek-pairing",
-    roster: {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")},
-    events: STATE.eventNames,
-    prefs: [...document.querySelectorAll(".pref-row")].map(r=>({
-      a:r.querySelector(".p1").value, b:r.querySelector(".p2").value,
-      w:+r.querySelector("input[type=range]").value })),
-    teams: STATE.teams
-  };
-  dl("cross-creek-pairing.json", JSON.stringify(out,null,2), "application/json");
-  status.textContent = "Pairing saved — load it any time to keep editing.";
-}
-function importPairing(s){
-  applySetup(s);
-  const cols = roster();
-  const n = cols[0].length;
-  const R = (s.events||[]).length;
-  const ok = Array.isArray(s.teams) && s.teams.length===R &&
-    s.teams.every(rt=>Array.isArray(rt)&&rt.length===n&&rt.every(tm=>Array.isArray(tm)&&tm.length===4&&tm.every(i=>Number.isInteger(i)&&i>=0&&i<n)));
-  if(!ok){ status.textContent="Pairing file loaded its setup, but the team data looked off."; return; }
-  STATE = {cols, n, eventNames: s.events, teams: s.teams};
-  SEL=null; hasScrolled=false;
-  renderState(true);
-  status.textContent = "Pairing loaded — click players to rearrange.";
-}
-function loadPairing(inp){
-  const f = inp.files[0]; if(!f) return;
-  const rd = new FileReader();
-  rd.onload = () => {
-    try{
-      const s = JSON.parse(rd.result);
-      if(s.type!=="cross-creek-pairing"){ status.textContent="That's a setup file — use Load setup for that one."; return; }
-      importPairing(s);
-    }catch(e){ status.textContent = "That file didn't look like a Cross Creek pairing."; }
+      if(s.teams){
+        const cols = roster();
+        const n = cols[0].length;
+        const R = (s.events||[]).length;
+        const ok = Array.isArray(s.teams) && s.teams.length===R &&
+          s.teams.every(rt=>Array.isArray(rt)&&rt.length===n&&rt.every(tm=>Array.isArray(tm)&&tm.length===4&&tm.every(i=>Number.isInteger(i)&&i>=0&&i<n)));
+        if(!ok){ status.textContent="Loaded the roster and preferences, but the team data in that file looked off."; return; }
+        STATE = {cols, n, eventNames: s.events, teams: s.teams};
+        SEL=null; hasScrolled=false;
+        renderState(true);
+        status.textContent = "Loaded — teams restored, click players to rearrange.";
+      } else {
+        STATE=null; document.getElementById("results").innerHTML="";
+        status.textContent = "Loaded — roster and preferences restored. Hit Generate for teams.";
+      }
+    }catch(e){ status.textContent = "That file didn't look like a Cross Creek save."; }
   };
   rd.readAsText(f); inp.value="";
 }
