@@ -77,6 +77,22 @@
     display:block; margin-bottom:6px;
   }
   .tier label b{color: var(--tee-red)}
+  .tier label .cnt{
+    float:right; letter-spacing:0; text-transform:none;
+    font-size:11px; color:var(--ink-soft);
+  }
+  .tier label .cnt.bad{color:var(--tee-red); font-weight:bold}
+  textarea.bad{border-color:var(--tee-red); outline:1px solid var(--tee-red)}
+  .err-note{
+    display:none;
+    background:#fbeaea;
+    border:1px solid var(--tee-red);
+    border-radius:3px;
+    padding:10px 14px;
+    font-size:14px; color:#6e211a;
+    margin-top:12px;
+  }
+  .err-note.show{display:block}
   textarea{
     width:100%; min-height:172px;
     font-family: Georgia, serif; font-size:14px;
@@ -240,12 +256,13 @@
 <section class="panel">
   <h2><span class="hole">1</span> The Roster</h2>
   <div class="tiers">
-    <div class="tier"><label><b>A</b> players (one per line)</label><textarea id="tA"></textarea></div>
-    <div class="tier"><label><b>B</b> players</label><textarea id="tB"></textarea></div>
-    <div class="tier"><label><b>C</b> players</label><textarea id="tC"></textarea></div>
-    <div class="tier"><label><b>D</b> players</label><textarea id="tD"></textarea></div>
+    <div class="tier"><label><b>A</b> players <span class="cnt" id="cntA"></span></label><textarea id="tA"></textarea></div>
+    <div class="tier"><label><b>B</b> players <span class="cnt" id="cntB"></span></label><textarea id="tB"></textarea></div>
+    <div class="tier"><label><b>C</b> players <span class="cnt" id="cntC"></span></label><textarea id="tC"></textarea></div>
+    <div class="tier"><label><b>D</b> players <span class="cnt" id="cntD"></span></label><textarea id="tD"></textarea></div>
   </div>
-  <p class="hint">Each column needs the same number of names.</p>
+  <p class="hint">One player per line &mdash; in all four boxes. Each column needs the same number of names.</p>
+  <div class="err-note" id="rosterErr"></div>
 </section>
 
 <section class="panel">
@@ -319,6 +336,39 @@ function roster(){
   return ["tA","tB","tC","tD"].map(id =>
     document.getElementById(id).value.split("\n").map(s=>s.trim()).filter(Boolean));
 }
+
+/* live column-size check */
+function checkColumns(){
+  const cols = roster();
+  const counts = cols.map(c=>c.length);
+  const letters = ["A","B","C","D"];
+  // the "expected" size is the most common count (majority rules)
+  const freq = {};
+  counts.forEach(c=>freq[c]=(freq[c]||0)+1);
+  const expected = +Object.keys(freq).reduce((a,b)=>freq[b]>freq[a]||(freq[b]===freq[a]&&+b>+a)?b:a);
+  const allEqual = counts.every(c=>c===counts[0]);
+  const err = document.getElementById("rosterErr");
+  counts.forEach((c,i)=>{
+    const span = document.getElementById("cnt"+letters[i]);
+    const ta = document.getElementById("t"+letters[i]);
+    span.textContent = c+(c===1?" name":" names");
+    const bad = !allEqual && c!==expected;
+    span.classList.toggle("bad", bad);
+    ta.classList.toggle("bad", bad);
+  });
+  if(allEqual){
+    err.classList.remove("show"); err.textContent="";
+  } else {
+    const offenders = letters.filter((L,i)=>counts[i]!==expected)
+      .map((L)=>{const i=letters.indexOf(L); const diff=counts[i]-expected;
+        return `<b>${L}</b> has ${counts[i]} (${diff>0?diff+" too many":Math.abs(diff)+" short"})`;}).join(", ");
+    err.innerHTML = `&#9888; Columns don't match &mdash; most have <b>${expected}</b> names, but ${offenders}. Teams can't be made until all four columns are even.`;
+    err.classList.add("show");
+  }
+  return {allEqual, counts, expected};
+}
+["tA","tB","tC","tD"].forEach(id=>document.getElementById(id).addEventListener("input", checkColumns));
+checkColumns();
 function allPlayers(){
   const [A,B,C,D] = roster();
   return [].concat(A.map(n=>({n,t:"A"})),B.map(n=>({n,t:"B"})),C.map(n=>({n,t:"C"})),D.map(n=>({n,t:"D"})));
@@ -368,11 +418,20 @@ let hasScrolled = false;
 
 /* ================= solver ================= */
 function generate(){
+  const chk = checkColumns();
+  if(!chk.allEqual){
+    const letters=["A","B","C","D"];
+    const detail = letters.map((L,i)=>L+": "+chk.counts[i]).join(", ");
+    status.textContent = "Can't generate — column sizes don't match ("+detail+"). See the roster for what's off.";
+    document.getElementById("rosterErr").scrollIntoView({behavior:"smooth", block:"center"});
+    return;
+  }
+  if(chk.counts[0]<2){
+    status.textContent = "Can't generate — need at least 2 players per column to make teams.";
+    return;
+  }
   const cols = roster();
   const n = cols[0].length;
-  if(!cols.every(c=>c.length===n) || n<2){
-    status.textContent = "Each column needs the same number of names (at least 2)."; return;
-  }
   const eventNames = [...document.querySelectorAll("#events input")].map(i=>i.value.trim()||"Event");
   const prefs = readPrefs();
   goBtn.disabled = true; status.textContent = "Shuffling the shoe...";
@@ -591,6 +650,7 @@ function applySetup(s){
   if(s.events){ document.querySelectorAll("#events input").forEach((el,i)=>{ if(s.events[i]!==undefined) el.value=s.events[i]; }); }
   document.getElementById("prefs").innerHTML=""; prefCount=0;
   (s.prefs||[]).forEach(p=>addPref(p.a,p.b,p.w));
+  checkColumns();
 }
 function loadAll(inp){
   const f = inp.files[0]; if(!f) return;
