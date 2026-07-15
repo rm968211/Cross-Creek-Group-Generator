@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cross Creek Pairings</title>
+<style>
+  :root{
+    --ink:#1e3a2f;        /* scorecard green-black ink */
+    --ink-soft:#4a6357;
+    --card:#faf7ee;       /* scorecard stock */
+    --paper:#eef0e6;      /* clubhouse wall */
+    --line:#c9c4ae;       /* ruled line */
+    --tee-red:#b23a2f;    /* red tee accent */
+    --fair:#2f6b45;       /* fairway green */
+    --gold:#a8843c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family: Georgia, 'Times New Roman', serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height:1.5;
+    padding: 24px 16px 80px;
+  }
+  .wrap{max-width:1060px;margin:0 auto}
+
+  header{
+    text-align:center;
+    border-top: 3px double var(--ink);
+    border-bottom: 3px double var(--ink);
+    padding: 22px 8px 18px;
+    margin-bottom: 28px;
+    background: var(--card);
+  }
+  header .est{
+    font-family: Verdana, sans-serif;
+    font-size:11px; letter-spacing:.35em; text-transform:uppercase;
+    color: var(--tee-red);
+  }
+  header h1{
+    font-size: clamp(30px, 6vw, 46px);
+    font-weight: normal;
+    letter-spacing:.04em;
+    margin: 4px 0 2px;
+  }
+  header .sub{font-style:italic; color:var(--ink-soft); font-size:15px}
+
+  .panel{
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 22px;
+  }
+  .panel h2{
+    font-family: Verdana, sans-serif;
+    font-size: 12px; letter-spacing:.25em; text-transform:uppercase;
+    font-weight: bold;
+    color: var(--fair);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px; margin-bottom: 16px;
+    display:flex; align-items:center; gap:8px;
+  }
+  h2 .hole{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px;height:22px;border-radius:50%;
+    background: var(--fair); color:#fff;
+    font-size:11px; letter-spacing:0;
+  }
+
+  .tiers{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:760px){.tiers{grid-template-columns:repeat(2,1fr)}}
+  .tier label{
+    font-family: Verdana, sans-serif; font-size:11px; letter-spacing:.15em;
+    text-transform:uppercase; color: var(--ink-soft);
+    display:block; margin-bottom:6px;
+  }
+  .tier label b{color: var(--tee-red)}
+  textarea{
+    width:100%; min-height:172px;
+    font-family: Georgia, serif; font-size:14px;
+    background: #fff;
+    border: 1px solid var(--line); border-radius:3px;
+    padding:10px; color:var(--ink); resize:vertical;
+    line-height:1.7;
+  }
+  textarea:focus, input:focus, select:focus{outline:2px solid var(--fair); outline-offset:1px}
+
+  .events-row{display:flex;gap:10px;flex-wrap:wrap}
+  .events-row input{
+    flex:1; min-width:170px;
+    font-family: Georgia, serif; font-size:15px;
+    padding:9px 12px; background:#fff;
+    border:1px solid var(--line); border-radius:3px; color:var(--ink);
+  }
+  .hint{font-size:13px; font-style:italic; color:var(--ink-soft); margin-top:10px}
+
+  .pref-row{
+    display:grid; grid-template-columns: 1fr auto 1fr 130px 34px;
+    gap:8px; align-items:center; margin-bottom:8px;
+  }
+  @media(max-width:640px){.pref-row{grid-template-columns:1fr 1fr; }
+    .pref-row .amp{display:none}.pref-row .wcell{grid-column:1}.pref-row .xbtn{grid-column:2;justify-self:end}}
+  .pref-row select{
+    font-family: Georgia, serif; font-size:14px; padding:8px;
+    background:#fff; border:1px solid var(--line); border-radius:3px; color:var(--ink); width:100%;
+  }
+  .amp{font-style:italic; color:var(--ink-soft); text-align:center}
+  .wcell{display:flex;align-items:center;gap:8px}
+  .wcell input[type=range]{flex:1; accent-color: var(--fair)}
+  .wcell .wv{font-family:Verdana,sans-serif;font-size:12px;min-width:18px;text-align:right}
+  .xbtn{
+    width:30px;height:30px;border:1px solid var(--line);border-radius:50%;
+    background:#fff;color:var(--tee-red);font-size:15px;cursor:pointer;
+    font-family:Verdana,sans-serif;
+  }
+  .xbtn:hover{background:var(--tee-red);color:#fff;border-color:var(--tee-red)}
+  .addbtn{
+    margin-top:6px;
+    font-family: Verdana, sans-serif; font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+    background:#fff; color:var(--fair);
+    border:1px dashed var(--fair); border-radius:3px;
+    padding:9px 16px; cursor:pointer;
+  }
+  .addbtn:hover{background:var(--fair);color:#fff;border-style:solid}
+  .pref-flag{font-size:13px;color:var(--tee-red);font-style:italic;margin-top:4px}
+
+  .gen-bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .go{
+    font-family: Verdana, sans-serif; font-size:14px; letter-spacing:.2em; text-transform:uppercase;
+    background: var(--fair); color:#fff; border:none; border-radius:3px;
+    padding: 14px 34px; cursor:pointer;
+    box-shadow: 0 2px 0 #1e4a2f;
+  }
+  .go:hover{background:#28593a}
+  .go:active{transform:translateY(1px);box-shadow:none}
+  .go:disabled{opacity:.6;cursor:wait}
+  .status{font-style:italic;color:var(--ink-soft);font-size:14px}
+
+  .event-card{
+    background: var(--card);
+    border:1px solid var(--line); border-radius:4px;
+    margin-bottom:20px; overflow:hidden;
+  }
+  .event-card .ehead{
+    background: var(--fair); color:#fff;
+    padding:10px 16px;
+    display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;
+  }
+  .event-card .ehead h3{font-weight:normal;font-size:18px;letter-spacing:.03em}
+  .event-card .ehead span{font-family:Verdana,sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;opacity:.85}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:9px 12px;text-align:left;font-size:14px}
+  thead th{
+    font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--ink-soft); border-bottom:2px solid var(--ink);
+    background:rgba(47,107,69,.06);
+  }
+  tbody tr{border-bottom:1px solid var(--line)}
+  tbody tr:nth-child(even){background:rgba(47,107,69,.045)}
+  td.tno{font-family:Verdana,sans-serif;font-size:11px;color:var(--tee-red);width:34px}
+  td .heart{color:var(--tee-red);font-size:12px;margin-left:4px}
+
+  .report{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:700px){.report{grid-template-columns:1fr}}
+  .rbox{background:#fff;border:1px solid var(--line);border-radius:3px;padding:14px 16px}
+  .rbox h4{font-family:Verdana,sans-serif;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px}
+  .ok{color:var(--fair);font-weight:bold}
+  .bad{color:var(--tee-red);font-weight:bold}
+  .rbox ul{list-style:none;font-size:14px}
+  .rbox li{padding:3px 0;border-bottom:1px dotted var(--line)}
+  .rbox li:last-child{border:none}
+  .footer-note{
+    text-align:center;margin-top:34px;font-style:italic;color:var(--ink-soft);font-size:13px;
+    border-top:1px solid var(--line);padding-top:14px;
+  }
+  #results:empty{display:none}
+  .toolbtn{
+    font-family: Verdana, sans-serif; font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+    background:#fff; color:var(--ink);
+    border:1px solid var(--line); border-radius:3px;
+    padding:9px 14px; cursor:pointer;
+  }
+  .toolbtn:hover{border-color:var(--fair); color:var(--fair)}
+  .export-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  @media print{
+    body{background:#fff;padding:0}
+    .panel, header .est, .footer-note, .gen-bar, .export-bar{display:none !important}
+    header{border-color:#000;margin-bottom:14px}
+    .event-card{break-inside:avoid;border-color:#000}
+    .event-card .ehead{background:#fff !important;color:#000;border-bottom:2px solid #000}
+    #reportPanel{display:block !important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="est">Est. Annually &middot; 28 Players &middot; 7 Foursomes</div>
+  <h1>Cross Creek Pairings</h1>
+  <div class="sub">Every team an A&thinsp;&middot;&thinsp;B&thinsp;&middot;&thinsp;C&thinsp;&middot;&thinsp;D &mdash; nobody rides the same cart twice</div>
+</header>
+
+<section class="panel">
+  <h2><span class="hole">1</span> The Roster</h2>
+  <div class="tiers">
+    <div class="tier"><label><b>A</b> players (one per line)</label><textarea id="tA"></textarea></div>
+    <div class="tier"><label><b>B</b> players</label><textarea id="tB"></textarea></div>
+    <div class="tier"><label><b>C</b> players</label><textarea id="tC"></textarea></div>
+    <div class="tier"><label><b>D</b> players</label><textarea id="tD"></textarea></div>
+  </div>
+  <p class="hint">Each column needs the same number of names. Seven per column makes seven foursomes.</p>
+</section>
+
+<section class="panel">
+  <h2><span class="hole">2</span> The Events</h2>
+  <div class="events-row" id="events">
+    <input value="Slivo Scramble">
+    <input value="6/6/6 Scramble">
+    <input value="White Tee Scramble">
+  </div>
+  <p class="hint">Rename as needed. These are the four-man events &mdash; the two-man and the Hangover pick their own teams.</p>
+</section>
+
+<section class="panel">
+  <h2><span class="hole">3</span> Preferences</h2>
+  <div id="prefs"></div>
+  <button class="addbtn" onclick="addPref()">+ Add a preference</button>
+  <p class="hint">A preference is a nudge, not a promise. Heavier weight, harder the solver tries. Two players can share a team in at most <em>one</em> event (twice would be a repeat), and two players from the same letter column can never be teammates.</p>
+</section>
+
+<section class="panel">
+  <h2><span class="hole">4</span> Tee It Up</h2>
+  <div class="gen-bar">
+    <button class="go" id="goBtn" onclick="generate()">Generate pairings</button>
+    <button class="toolbtn" onclick="saveSetup()">Save setup</button>
+    <button class="toolbtn" onclick="loadFile.click()">Load setup</button>
+    <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadSetup(this)">
+    <span class="status" id="status">Ready when you are.</span>
+  </div>
+</section>
+
+<div id="results"></div>
+
+<p class="footer-note">Repeats are penalized far above any preference &mdash; the solver only grants a wish if it can do so without making two players share a foursome twice.</p>
+</div>
+
+<script>
+const DEFAULT = {
+  A: ["Zeke Deflorio","John Baucco","Shawn McWilliams","Ryan Weed","Ryan Miers","Denny Miers","Joe Locigno"],
+  B: ["Doug Bennett","Mike Bregitzer","Alan Scott","Don Andrews","Frank Skully","Bud Deflorio","Chris Palmeri"],
+  C: ["Dave Powers","Jason Salerno","Nate Stevens","Bret Traylor","Justin Myers","Brad Sala","Pat Bruckman"],
+  D: ["Fletcher Stevens","Jeff Myers Jr.","John Locigno","Jim Brown","George Hahn","JAM","Ross Locigno"]
+};
+tA.value = DEFAULT.A.join("\n"); tB.value = DEFAULT.B.join("\n");
+tC.value = DEFAULT.C.join("\n"); tD.value = DEFAULT.D.join("\n");
+
+function roster(){
+  const cols = ["tA","tB","tC","tD"].map(id =>
+    document.getElementById(id).value.split("\n").map(s=>s.trim()).filter(Boolean));
+  return cols;
+}
+function allPlayers(){
+  const [A,B,C,D] = roster();
+  return [].concat(A.map(n=>({n,t:"A"})),B.map(n=>({n,t:"B"})),C.map(n=>({n,t:"C"})),D.map(n=>({n,t:"D"})));
+}
+
+/* ---------- preferences UI ---------- */
+let prefCount = 0;
+function playerOptions(sel){
+  return allPlayers().map(p=>`<option ${p.n===sel?"selected":""} value="${p.n}">${p.n} (${p.t})</option>`).join("");
+}
+function addPref(p1, p2, w=5){
+  const id = "pref"+(prefCount++);
+  const div = document.createElement("div");
+  div.className = "pref-row"; div.id = id;
+  div.innerHTML = `
+    <select class="p1">${playerOptions(p1)}</select>
+    <span class="amp">wants to play with</span>
+    <select class="p2">${playerOptions(p2)}</select>
+    <span class="wcell"><input type="range" min="1" max="10" value="${w}" oninput="this.nextElementSibling.textContent=this.value"><span class="wv">${w}</span></span>
+    <button class="xbtn" onclick="document.getElementById('${id}').remove()" title="Remove">&times;</button>
+    <div class="pref-flag" style="grid-column:1/-1;display:none"></div>`;
+  document.getElementById("prefs").appendChild(div);
+}
+addPref("Chris Palmeri","Ryan Miers",5);
+
+function readPrefs(){
+  const out = [];
+  const players = allPlayers();
+  const tier = Object.fromEntries(players.map(p=>[p.n,p.t]));
+  document.querySelectorAll(".pref-row").forEach(row=>{
+    const a = row.querySelector(".p1").value, b = row.querySelector(".p2").value;
+    const w = +row.querySelector("input[type=range]").value;
+    const flag = row.querySelector(".pref-flag");
+    flag.style.display = "none";
+    if(a===b){ flag.textContent="A player can't prefer himself &mdash; ignored."; flag.style.display="block"; return; }
+    if(tier[a]===tier[b]){ flag.innerHTML=`Both are ${tier[a]} players &mdash; the one-per-letter rule makes this impossible, so it's ignored.`; flag.style.display="block"; return; }
+    out.push({a,b,w});
+  });
+  return out;
+}
+
+/* ---------- solver ---------- */
+function generate(){
+  const cols = roster();
+  const n = cols[0].length;
+  if(!cols.every(c=>c.length===n) || n<2){
+    status.textContent = "Each column needs the same number of names (at least 2)."; return;
+  }
+  const eventNames = [...document.querySelectorAll("#events input")].map(i=>i.value.trim()||"Event");
+  const R = eventNames.length;
+  const prefs = readPrefs();
+  goBtn.disabled = true; status.textContent = "Shuffling the shoe...";
+  setTimeout(()=>{ run(cols,n,R,eventNames,prefs); goBtn.disabled=false; }, 30);
+}
+
+function run(cols,n,R,eventNames,prefs){
+  // player ids: col*100+idx ; team t in round r: A_t, B[perm], C[perm], D[perm]
+  const name = (c,i)=>cols[c][i];
+  const prefMap = {}; // "cA:iA|cB:iB" -> weight
+  const findP = nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return [c,i];} return null; };
+  const prefList = [];
+  for(const p of prefs){
+    const pa=findP(p.a), pb=findP(p.b);
+    if(pa&&pb) prefList.push({a:pa,b:pb,w:p.w});
+  }
+  const REP = 100000; // repeat penalty dwarfs all preference weight
+
+  const randPerm = ()=>{const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
+
+  function teams(rounds){ // rounds[r] = [permB, permC, permD]
+    const out=[];
+    for(let r=0;r<R;r++){ const rt=[];
+      for(let t=0;t<n;t++) rt.push([[0,t],[1,rounds[r][0][t]],[2,rounds[r][1][t]],[3,rounds[r][2][t]]]);
+      out.push(rt);
+    } return out;
+  }
+  function score(rounds){
+    const seen = new Map(); let repeats=0, prefPts=0;
+    const paired = new Set();
+    for(const rt of teams(rounds)) for(const team of rt){
+      for(let i=0;i<4;i++) for(let j=i+1;j<4;j++){
+        const k = team[i][0]*100+team[i][1]+"|"+(team[j][0]*100+team[j][1]);
+        const c = seen.get(k)||0; if(c>0) repeats++; seen.set(k,c+1);
+        paired.add(k);
+      }
+    }
+    for(const p of prefList){
+      const k1=p.a[0]*100+p.a[1]+"|"+(p.b[0]*100+p.b[1]);
+      const k2=p.b[0]*100+p.b[1]+"|"+(p.a[0]*100+p.a[1]);
+      if(paired.has(k1)||paired.has(k2)) prefPts += p.w;
+    }
+    return {cost: repeats*REP - prefPts, repeats, prefPts};
+  }
+
+  let best=null, bestScore=null;
+  const RESTARTS=6, ITERS=22000;
+  for(let rs=0;rs<RESTARTS;rs++){
+    let rounds=[]; for(let r=0;r<R;r++) rounds.push([randPerm(),randPerm(),randPerm()]);
+    let cur=score(rounds);
+    for(let it=0; it<ITERS; it++){
+      const r=Math.random()*R|0, col=Math.random()*3|0;
+      const i=Math.random()*n|0; let j=Math.random()*n|0; if(i===j) j=(j+1)%n;
+      const perm=rounds[r][col];
+      [perm[i],perm[j]]=[perm[j],perm[i]];
+      const nxt=score(rounds);
+      const T = 1 - it/ITERS;
+      if(nxt.cost<=cur.cost || Math.random()<0.02*T) cur=nxt;
+      else [perm[i],perm[j]]=[perm[j],perm[i]];
+      if(cur.cost===-prefList.reduce((s,p)=>s+p.w,0) && cur.repeats===0) break;
+    }
+    if(bestScore===null || cur.cost<bestScore.cost){ bestScore=cur; best=JSON.parse(JSON.stringify(rounds)); }
+    if(bestScore.repeats===0 && bestScore.prefPts===prefList.reduce((s,p)=>s+p.w,0)) break;
+  }
+
+  render(best,bestScore,cols,n,R,eventNames,prefList);
+}
+
+let LAST=null;
+function render(rounds,sc,cols,n,R,eventNames,prefList){
+  LAST={rounds,cols,n,R,eventNames};
+  const letters=["A","B","C","D"];
+  const prefPairs = new Set();
+  // which team pairs are preferred (for the heart marker)
+  const wantKey = new Set(prefList.flatMap(p=>[p.a[0]*100+p.a[1]+"|"+(p.b[0]*100+p.b[1]), p.b[0]*100+p.b[1]+"|"+(p.a[0]*100+p.a[1])]));
+
+  let html="";
+  const seen=new Map(); const satisfied=new Set();
+  for(let r=0;r<R;r++){
+    html+=`<div class="event-card"><div class="ehead"><h3>${eventNames[r]}</h3><span>${n} teams &middot; one per letter</span></div>
+      <table><thead><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>`;
+    for(let t=0;t<n;t++){
+      const team=[[0,t],[1,rounds[r][0][t]],[2,rounds[r][1][t]],[3,rounds[r][2][t]]];
+      // mark prefs satisfied on this team
+      const marks=[false,false,false,false];
+      for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){
+        const k=team[i][0]*100+team[i][1]+"|"+(team[j][0]*100+team[j][1]);
+        if(wantKey.has(k)){marks[i]=marks[j]=true; satisfied.add(k);}
+        const c=seen.get(k)||0; seen.set(k,c+1);
+      }
+      html+=`<tr><td class="tno">${t+1}</td>`+team.map((p,i)=>`<td>${cols[p[0]][p[1]]}${marks[i]?'<span class="heart">&#10084;</span>':''}</td>`).join("")+`</tr>`;
+    }
+    html+=`</tbody></table></div>`;
+  }
+
+  // reports
+  const repeats=[]; for(const [k,c] of seen) if(c>1){
+    const [x,y]=k.split("|").map(Number);
+    repeats.push(`${cols[x/100|0][x%100]} &amp; ${cols[y/100|0][y%100]} (${c}&times;)`);
+  }
+  let prefHtml="";
+  if(prefList.length===0) prefHtml="<li>No preferences entered.</li>";
+  for(const p of prefList){
+    const k1=p.a[0]*100+p.a[1]+"|"+(p.b[0]*100+p.b[1]);
+    const k2=p.b[0]*100+p.b[1]+"|"+(p.a[0]*100+p.a[1]);
+    const ok = satisfied.has(k1)||satisfied.has(k2);
+    prefHtml+=`<li>${cols[p.a[0]][p.a[1]]} &amp; ${cols[p.b[0]][p.b[1]]} (weight ${p.w}) &mdash; <span class="${ok?'ok':'bad'}">${ok?'granted':'not granted'}</span></li>`;
+  }
+  html+=`<div class="panel" id="reportPanel"><h2><span class="hole">&#9873;</span> The Card</h2><div class="report">
+    <div class="rbox"><h4>Repeat check</h4>${repeats.length===0?'<p class="ok">Clean card — no two players share a foursome twice.</p>':'<ul><li>'+repeats.join('</li><li>')+'</li></ul>'}</div>
+    <div class="rbox"><h4>Preference results</h4><ul>${prefHtml}</ul></div>
+  </div>
+  <div class="export-bar">
+    <button class="toolbtn" onclick="copyResults()">Copy as text</button>
+    <button class="toolbtn" onclick="downloadCSV()">Download CSV</button>
+    <button class="toolbtn" onclick="downloadText()">Download text</button>
+    <button class="toolbtn" onclick="window.print()">Print / PDF</button>
+  </div></div>`;
+
+  document.getElementById("results").innerHTML=html;
+  status.textContent = repeats.length===0 ? "Done — clean card. Regenerate for a different draw." : "Done — couldn't clear every repeat; try regenerating.";
+  document.getElementById("results").scrollIntoView({behavior:"smooth"});
+}
+/* ---------- save / load setup ---------- */
+function dl(filename, text, type){
+  const blob = new Blob([text], {type});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
+}
+function saveSetup(){
+  const setup = {
+    roster: {A:tA.value, B:tB.value, C:tC.value, D:tD.value},
+    events: [...document.querySelectorAll("#events input")].map(i=>i.value),
+    prefs: [...document.querySelectorAll(".pref-row")].map(r=>({
+      a:r.querySelector(".p1").value, b:r.querySelector(".p2").value,
+      w:+r.querySelector("input[type=range]").value }))
+  };
+  dl("cross-creek-setup.json", JSON.stringify(setup,null,2), "application/json");
+  status.textContent = "Setup saved — keep the file, load it next year.";
+}
+function loadSetup(inp){
+  const f = inp.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{
+      const s = JSON.parse(rd.result);
+      if(s.roster){ tA.value=s.roster.A||""; tB.value=s.roster.B||""; tC.value=s.roster.C||""; tD.value=s.roster.D||""; }
+      if(s.events){ document.querySelectorAll("#events input").forEach((el,i)=>{ if(s.events[i]!==undefined) el.value=s.events[i]; }); }
+      document.getElementById("prefs").innerHTML=""; prefCount=0;
+      (s.prefs||[]).forEach(p=>addPref(p.a,p.b,p.w));
+      status.textContent = "Setup loaded.";
+    }catch(e){ status.textContent = "That file didn't look like a Cross Creek setup."; }
+  };
+  rd.readAsText(f); inp.value="";
+}
+
+/* ---------- export results ---------- */
+function resultsText(){
+  if(!LAST) return "";
+  const {rounds,cols,n,R,eventNames} = LAST;
+  let out = "CROSS CREEK PAIRINGS\n====================\n";
+  for(let r=0;r<R;r++){
+    out += "\n" + eventNames[r].toUpperCase() + "\n";
+    for(let t=0;t<n;t++){
+      const team=[cols[0][t],cols[1][rounds[r][0][t]],cols[2][rounds[r][1][t]],cols[3][rounds[r][2][t]]];
+      out += "  Team "+(t+1)+": "+team.join(", ")+"\n";
+    }
+  }
+  return out;
+}
+function copyResults(){
+  if(!LAST){ status.textContent="Generate pairings first."; return; }
+  navigator.clipboard.writeText(resultsText()).then(
+    ()=>{ status.textContent="Copied — paste it anywhere."; },
+    ()=>{ downloadText(); });
+}
+function downloadText(){
+  if(!LAST){ status.textContent="Generate pairings first."; return; }
+  dl("cross-creek-pairings.txt", resultsText(), "text/plain");
+}
+function downloadCSV(){
+  if(!LAST){ status.textContent="Generate pairings first."; return; }
+  const {rounds,cols,n,R,eventNames} = LAST;
+  let csv = "Event,Team,A,B,C,D\n";
+  const esc = s => '"'+String(s).replace(/"/g,'""')+'"';
+  for(let r=0;r<R;r++) for(let t=0;t<n;t++){
+    csv += [esc(eventNames[r]), t+1, esc(cols[0][t]), esc(cols[1][rounds[r][0][t]]),
+            esc(cols[2][rounds[r][1][t]]), esc(cols[3][rounds[r][2][t]])].join(",")+"\n";
+  }
+  dl("cross-creek-pairings.csv", csv, "text/csv");
+}
+</script>
+</body>
+</html>
