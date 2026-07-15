@@ -6,13 +6,13 @@
 <title>Cross Creek Pairings</title>
 <style>
   :root{
-    --ink:#1e3a2f;        /* scorecard green-black ink */
+    --ink:#1e3a2f;
     --ink-soft:#4a6357;
-    --card:#faf7ee;       /* scorecard stock */
-    --paper:#eef0e6;      /* clubhouse wall */
-    --line:#c9c4ae;       /* ruled line */
-    --tee-red:#b23a2f;    /* red tee accent */
-    --fair:#2f6b45;       /* fairway green */
+    --card:#faf7ee;
+    --paper:#eef0e6;
+    --line:#c9c4ae;
+    --tee-red:#b23a2f;
+    --fair:#2f6b45;
     --gold:#a8843c;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -126,7 +126,7 @@
   .addbtn:hover{background:var(--fair);color:#fff;border-style:solid}
   .pref-flag{font-size:13px;color:var(--tee-red);font-style:italic;margin-top:4px}
 
-  .gen-bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .gen-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .go{
     font-family: Verdana, sans-serif; font-size:14px; letter-spacing:.2em; text-transform:uppercase;
     background: var(--fair); color:#fff; border:none; border-radius:3px;
@@ -137,6 +137,23 @@
   .go:active{transform:translateY(1px);box-shadow:none}
   .go:disabled{opacity:.6;cursor:wait}
   .status{font-style:italic;color:var(--ink-soft);font-size:14px}
+  .toolbtn{
+    font-family: Verdana, sans-serif; font-size:11px; letter-spacing:.15em; text-transform:uppercase;
+    background:#fff; color:var(--ink);
+    border:1px solid var(--line); border-radius:3px;
+    padding:9px 14px; cursor:pointer;
+  }
+  .toolbtn:hover{border-color:var(--fair); color:var(--fair)}
+  .export-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+
+  .edit-note{
+    background: #fff8e4;
+    border:1px solid var(--gold);
+    border-radius:3px;
+    padding:10px 14px;
+    font-size:14px; font-style:italic; color:#6b5420;
+    margin-bottom:16px;
+  }
 
   .event-card{
     background: var(--card);
@@ -151,16 +168,34 @@
   .event-card .ehead h3{font-weight:normal;font-size:18px;letter-spacing:.03em}
   .event-card .ehead span{font-family:Verdana,sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;opacity:.85}
   table{width:100%;border-collapse:collapse}
-  th,td{padding:9px 12px;text-align:left;font-size:14px}
+  th,td{padding:0;text-align:left;font-size:14px}
   thead th{
     font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
     color:var(--ink-soft); border-bottom:2px solid var(--ink);
     background:rgba(47,107,69,.06);
+    padding:9px 12px;
   }
   tbody tr{border-bottom:1px solid var(--line)}
   tbody tr:nth-child(even){background:rgba(47,107,69,.045)}
-  td.tno{font-family:Verdana,sans-serif;font-size:11px;color:var(--tee-red);width:34px}
-  td .heart{color:var(--tee-red);font-size:12px;margin-left:4px}
+  td.tno{font-family:Verdana,sans-serif;font-size:11px;color:var(--tee-red);width:34px;padding:9px 12px}
+  td .cell{
+    display:block; width:100%;
+    padding:9px 12px;
+    cursor:pointer;
+    border:1px dashed transparent;
+    border-radius:3px;
+    -webkit-user-select:none; user-select:none;
+  }
+  td .cell:hover{border-color:var(--gold); background:rgba(168,132,60,.08)}
+  td .cell.sel{
+    background: var(--gold); color:#fff;
+    border-color:var(--gold);
+  }
+  td .cell.target{border-color:var(--fair); background:rgba(47,107,69,.1)}
+  td .cell.target:hover{background:rgba(47,107,69,.22)}
+  td .cell.rep{ text-decoration: underline dotted var(--tee-red) 2px; text-underline-offset:3px; }
+  .heart{color:var(--tee-red);font-size:12px;margin-left:4px}
+  .warn{color:var(--tee-red);font-size:12px;margin-left:4px;font-family:Verdana,sans-serif}
 
   .report{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   @media(max-width:700px){.report{grid-template-columns:1fr}}
@@ -176,21 +211,14 @@
     border-top:1px solid var(--line);padding-top:14px;
   }
   #results:empty{display:none}
-  .toolbtn{
-    font-family: Verdana, sans-serif; font-size:11px; letter-spacing:.15em; text-transform:uppercase;
-    background:#fff; color:var(--ink);
-    border:1px solid var(--line); border-radius:3px;
-    padding:9px 14px; cursor:pointer;
-  }
-  .toolbtn:hover{border-color:var(--fair); color:var(--fair)}
-  .export-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+
   @media print{
     body{background:#fff;padding:0}
-    .panel, header .est, .footer-note, .gen-bar, .export-bar{display:none !important}
+    .panel:not(#reportPanel), header .est, .footer-note, .gen-bar, .export-bar, .edit-note{display:none !important}
     header{border-color:#000;margin-bottom:14px}
     .event-card{break-inside:avoid;border-color:#000}
     .event-card .ehead{background:#fff !important;color:#000;border-bottom:2px solid #000}
-    #reportPanel{display:block !important}
+    td .cell{border:none;cursor:default}
   }
 </style>
 </head>
@@ -227,19 +255,46 @@
 <section class="panel">
   <h2><span class="hole">3</span> Preferences</h2>
   <div id="prefs"></div>
-  <button class="addbtn" onclick="addPref()">+ Add a preference</button>
+  <button class="addbtn" onclick="addPref()" title="Add a 'wants to play with' request — the solver will try to put them on a team together in one event">+ Add a preference</button>
   <p class="hint">A preference is a nudge, not a promise. Heavier weight, harder the solver tries. Two players can share a team in at most <em>one</em> event (twice would be a repeat), and two players from the same letter column can never be teammates.</p>
 </section>
 
 <section class="panel">
   <h2><span class="hole">4</span> Tee It Up</h2>
   <div class="gen-bar">
-    <button class="go" id="goBtn" onclick="generate()">Generate pairings</button>
-    <button class="toolbtn" onclick="saveSetup()">Save setup</button>
-    <button class="toolbtn" onclick="loadFile.click()">Load setup</button>
+    <button class="go" id="goBtn" onclick="generate()" title="Solve for teams: zero repeats first, granted preferences second">Generate pairings</button>
+    <button class="toolbtn" onclick="saveSetup()" title="Download roster, event names, and preferences as a file (not the teams)">Save setup</button>
+    <button class="toolbtn" onclick="loadFile.click()" title="Restore a saved setup file">Load setup</button>
+    <button class="toolbtn" onclick="loadPairFile.click()" title="Restore a saved pairing file — teams come back fully editable">Load pairing</button>
     <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadSetup(this)">
+    <input type="file" id="loadPairFile" accept=".json" style="display:none" onchange="loadPairing(this)">
     <span class="status" id="status">Ready when you are.</span>
   </div>
+</section>
+
+<section class="panel" id="legendPanel">
+  <h2><span class="hole">?</span> What the Symbols Mean</h2>
+  <div class="report">
+    <div class="rbox">
+      <h4>On the team sheets</h4>
+      <ul>
+        <li><span class="heart" style="margin-left:0">&#10084;</span> &nbsp;A granted preference &mdash; these two asked to play together and got it</li>
+        <li><span class="warn" style="margin-left:0">&#9888;</span> + <span style="text-decoration:underline dotted var(--tee-red) 2px;text-underline-offset:3px">red underline</span> &nbsp;This player is part of a repeated pairing &mdash; check The Card for who and where</li>
+        <li><span style="background:var(--gold);color:#fff;padding:1px 8px;border-radius:3px">gold</span> &nbsp;The player you've selected for a swap</li>
+        <li><span style="background:rgba(47,107,69,.15);border:1px dashed var(--fair);padding:1px 8px;border-radius:3px">green dashed</span> &nbsp;Legal swap partners for your selection (same letter, same event)</li>
+      </ul>
+    </div>
+    <div class="rbox">
+      <h4>Controls</h4>
+      <ul>
+        <li><b>Weight slider (1&ndash;10)</b> &mdash; how hard the solver tries to grant a wish; 10 is top priority, but no weight can force a repeat</li>
+        <li><b>Save/Load setup</b> &mdash; the ingredients: roster, event names, preferences (no teams)</li>
+        <li><b>Save/Load pairing</b> &mdash; the finished teams, restored fully editable</li>
+        <li><b>Copy / CSV / Text / Print</b> &mdash; exports the sheet exactly as shown, including your hand-swaps</li>
+      </ul>
+    </div>
+  </div>
+  <p class="hint">Hover over almost anything in the app for a quick reminder of what it does.</p>
 </section>
 
 <div id="results"></div>
@@ -258,21 +313,20 @@ tA.value = DEFAULT.A.join("\n"); tB.value = DEFAULT.B.join("\n");
 tC.value = DEFAULT.C.join("\n"); tD.value = DEFAULT.D.join("\n");
 
 function roster(){
-  const cols = ["tA","tB","tC","tD"].map(id =>
+  return ["tA","tB","tC","tD"].map(id =>
     document.getElementById(id).value.split("\n").map(s=>s.trim()).filter(Boolean));
-  return cols;
 }
 function allPlayers(){
   const [A,B,C,D] = roster();
   return [].concat(A.map(n=>({n,t:"A"})),B.map(n=>({n,t:"B"})),C.map(n=>({n,t:"C"})),D.map(n=>({n,t:"D"})));
 }
 
-/* ---------- preferences UI ---------- */
+/* ================= preferences UI ================= */
 let prefCount = 0;
 function playerOptions(sel){
   return allPlayers().map(p=>`<option ${p.n===sel?"selected":""} value="${p.n}">${p.n} (${p.t})</option>`).join("");
 }
-function addPref(p1, p2, w=5){
+function addPref(p1, p2, w=10){
   const id = "pref"+(prefCount++);
   const div = document.createElement("div");
   div.className = "pref-row"; div.id = id;
@@ -280,12 +334,11 @@ function addPref(p1, p2, w=5){
     <select class="p1">${playerOptions(p1)}</select>
     <span class="amp">wants to play with</span>
     <select class="p2">${playerOptions(p2)}</select>
-    <span class="wcell"><input type="range" min="1" max="10" value="${w}" oninput="this.nextElementSibling.textContent=this.value"><span class="wv">${w}</span></span>
-    <button class="xbtn" onclick="document.getElementById('${id}').remove()" title="Remove">&times;</button>
+    <span class="wcell" title="Weight: how hard the solver tries to grant this wish. 10 = top priority. It will never break the no-repeat rule for any weight."><input type="range" min="1" max="10" value="${w}" oninput="this.nextElementSibling.textContent=this.value"><span class="wv">${w}</span></span>
+    <button class="xbtn" onclick="document.getElementById('${id}').remove(); if(STATE) renderState();" title="Remove this preference">&times;</button>
     <div class="pref-flag" style="grid-column:1/-1;display:none"></div>`;
   document.getElementById("prefs").appendChild(div);
 }
-addPref("Chris Palmeri","Ryan Miers",5);
 
 function readPrefs(){
   const out = [];
@@ -296,14 +349,21 @@ function readPrefs(){
     const w = +row.querySelector("input[type=range]").value;
     const flag = row.querySelector(".pref-flag");
     flag.style.display = "none";
-    if(a===b){ flag.textContent="A player can't prefer himself &mdash; ignored."; flag.style.display="block"; return; }
-    if(tier[a]===tier[b]){ flag.innerHTML=`Both are ${tier[a]} players &mdash; the one-per-letter rule makes this impossible, so it's ignored.`; flag.style.display="block"; return; }
+    if(a===b){ flag.textContent="A player can't prefer himself — ignored."; flag.style.display="block"; return; }
+    if(tier[a]===tier[b]){ flag.innerHTML=`Both are ${tier[a]} players — the one-per-letter rule makes this impossible, so it's ignored.`; flag.style.display="block"; return; }
     out.push({a,b,w});
   });
   return out;
 }
 
-/* ---------- solver ---------- */
+/* ================= state =================
+   STATE = { cols:[[A..],[B..],[C..],[D..]], n, eventNames:[...],
+             teams: teams[r][t] = [iA,iB,iC,iD] (indices into cols) }        */
+let STATE = null;
+let SEL = null;   // selected cell {r,t,c} while hand-editing
+let hasScrolled = false;
+
+/* ================= solver ================= */
 function generate(){
   const cols = roster();
   const n = cols[0].length;
@@ -311,43 +371,35 @@ function generate(){
     status.textContent = "Each column needs the same number of names (at least 2)."; return;
   }
   const eventNames = [...document.querySelectorAll("#events input")].map(i=>i.value.trim()||"Event");
-  const R = eventNames.length;
   const prefs = readPrefs();
   goBtn.disabled = true; status.textContent = "Shuffling the shoe...";
-  setTimeout(()=>{ run(cols,n,R,eventNames,prefs); goBtn.disabled=false; }, 30);
+  hasScrolled = false;
+  setTimeout(()=>{ run(cols,n,eventNames,prefs); goBtn.disabled=false; }, 30);
 }
 
-function run(cols,n,R,eventNames,prefs){
-  // player ids: col*100+idx ; team t in round r: A_t, B[perm], C[perm], D[perm]
-  const name = (c,i)=>cols[c][i];
-  const prefMap = {}; // "cA:iA|cB:iB" -> weight
+function run(cols,n,eventNames,prefs){
+  const R = eventNames.length;
   const findP = nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return [c,i];} return null; };
   const prefList = [];
   for(const p of prefs){
     const pa=findP(p.a), pb=findP(p.b);
     if(pa&&pb) prefList.push({a:pa,b:pb,w:p.w});
   }
-  const REP = 100000; // repeat penalty dwarfs all preference weight
-
+  const REP = 100000;
   const randPerm = ()=>{const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
 
-  function teams(rounds){ // rounds[r] = [permB, permC, permD]
-    const out=[];
-    for(let r=0;r<R;r++){ const rt=[];
-      for(let t=0;t<n;t++) rt.push([[0,t],[1,rounds[r][0][t]],[2,rounds[r][1][t]],[3,rounds[r][2][t]]]);
-      out.push(rt);
-    } return out;
-  }
   function score(rounds){
-    const seen = new Map(); let repeats=0, prefPts=0;
+    const seen = new Map(); let repeats=0;
     const paired = new Set();
-    for(const rt of teams(rounds)) for(const team of rt){
+    for(let r=0;r<R;r++) for(let t=0;t<n;t++){
+      const team=[[0,t],[1,rounds[r][0][t]],[2,rounds[r][1][t]],[3,rounds[r][2][t]]];
       for(let i=0;i<4;i++) for(let j=i+1;j<4;j++){
         const k = team[i][0]*100+team[i][1]+"|"+(team[j][0]*100+team[j][1]);
         const c = seen.get(k)||0; if(c>0) repeats++; seen.set(k,c+1);
         paired.add(k);
       }
     }
+    let prefPts=0;
     for(const p of prefList){
       const k1=p.a[0]*100+p.a[1]+"|"+(p.b[0]*100+p.b[1]);
       const k2=p.b[0]*100+p.b[1]+"|"+(p.a[0]*100+p.a[1]);
@@ -358,6 +410,7 @@ function run(cols,n,R,eventNames,prefs){
 
   let best=null, bestScore=null;
   const RESTARTS=6, ITERS=22000;
+  const maxPref = prefList.reduce((s,p)=>s+p.w,0);
   for(let rs=0;rs<RESTARTS;rs++){
     let rounds=[]; for(let r=0;r<R;r++) rounds.push([randPerm(),randPerm(),randPerm()]);
     let cur=score(rounds);
@@ -370,71 +423,141 @@ function run(cols,n,R,eventNames,prefs){
       const T = 1 - it/ITERS;
       if(nxt.cost<=cur.cost || Math.random()<0.02*T) cur=nxt;
       else [perm[i],perm[j]]=[perm[j],perm[i]];
-      if(cur.cost===-prefList.reduce((s,p)=>s+p.w,0) && cur.repeats===0) break;
+      if(cur.repeats===0 && cur.prefPts===maxPref) break;
     }
     if(bestScore===null || cur.cost<bestScore.cost){ bestScore=cur; best=JSON.parse(JSON.stringify(rounds)); }
-    if(bestScore.repeats===0 && bestScore.prefPts===prefList.reduce((s,p)=>s+p.w,0)) break;
+    if(bestScore.repeats===0 && bestScore.prefPts===maxPref) break;
   }
 
-  render(best,bestScore,cols,n,R,eventNames,prefList);
+  const teams=[];
+  for(let r=0;r<R;r++){ const rt=[];
+    for(let t=0;t<n;t++) rt.push([t, best[r][0][t], best[r][1][t], best[r][2][t]]);
+    teams.push(rt);
+  }
+  STATE = {cols, n, eventNames, teams};
+  SEL = null;
+  renderState(true);
 }
 
-let LAST=null;
-function render(rounds,sc,cols,n,R,eventNames,prefList){
-  LAST={rounds,cols,n,R,eventNames};
-  const letters=["A","B","C","D"];
-  const prefPairs = new Set();
-  // which team pairs are preferred (for the heart marker)
-  const wantKey = new Set(prefList.flatMap(p=>[p.a[0]*100+p.a[1]+"|"+(p.b[0]*100+p.b[1]), p.b[0]*100+p.b[1]+"|"+(p.a[0]*100+p.a[1])]));
+/* ================= analysis of current STATE ================= */
+function analyze(){
+  const {cols,n,eventNames,teams} = STATE;
+  const prefs = readPrefs();
+  const findP = nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return [c,i];} return null; };
+  const prefKeys = new Set();
+  const prefList = [];
+  for(const p of prefs){
+    const pa=findP(p.a), pb=findP(p.b);
+    if(pa&&pb){ prefList.push({...p, pa, pb});
+      prefKeys.add(pa[0]*100+pa[1]+"|"+(pb[0]*100+pb[1]));
+      prefKeys.add(pb[0]*100+pb[1]+"|"+(pa[0]*100+pa[1])); }
+  }
+  const seen = new Map();   // pairkey -> [{r,t}, ...]
+  for(let r=0;r<teams.length;r++) for(let t=0;t<n;t++){
+    const team = teams[r][t];
+    for(let i=0;i<4;i++) for(let j=i+1;j<4;j++){
+      const k = i*100+team[i]+"|"+(j*100+team[j]);
+      if(!seen.has(k)) seen.set(k,[]);
+      seen.get(k).push({r,t});
+    }
+  }
+  const repeats = [...seen.entries()].filter(([k,v])=>v.length>1);
+  const repCells = new Set(); // "r|t|c" cells involved in a repeat
+  for(const [k,v] of repeats){
+    const [x,y]=k.split("|").map(Number);
+    for(const loc of v){ repCells.add(loc.r+"|"+loc.t+"|"+(x/100|0)); repCells.add(loc.r+"|"+loc.t+"|"+(y/100|0)); }
+  }
+  const satisfied = new Set();
+  const heartCells = new Set();
+  for(const [k,v] of seen){
+    if(prefKeys.has(k)){ satisfied.add(k);
+      const [x,y]=k.split("|").map(Number);
+      for(const loc of v){ heartCells.add(loc.r+"|"+loc.t+"|"+(x/100|0)); heartCells.add(loc.r+"|"+loc.t+"|"+(y/100|0)); }
+    }
+  }
+  return {repeats, repCells, heartCells, prefList, satisfied, seen};
+}
 
-  let html="";
-  const seen=new Map(); const satisfied=new Set();
-  for(let r=0;r<R;r++){
+/* ================= render ================= */
+const letters=["A","B","C","D"];
+function renderState(scroll){
+  if(!STATE) return;
+  const {cols,n,eventNames,teams} = STATE;
+  const an = analyze();
+
+  let html = `<div class="edit-note">&#9997;&#65039; <b>Hand-editing is on.</b> Click a player, then click another player in the <em>same letter column of the same event</em> to swap them. The repeat check and hearts update instantly. Letter columns stay pure &mdash; an A can only trade places with an A.</div>`;
+
+  for(let r=0;r<teams.length;r++){
     html+=`<div class="event-card"><div class="ehead"><h3>${eventNames[r]}</h3><span>${n} teams &middot; one per letter</span></div>
       <table><thead><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>`;
     for(let t=0;t<n;t++){
-      const team=[[0,t],[1,rounds[r][0][t]],[2,rounds[r][1][t]],[3,rounds[r][2][t]]];
-      // mark prefs satisfied on this team
-      const marks=[false,false,false,false];
-      for(let i=0;i<4;i++)for(let j=i+1;j<4;j++){
-        const k=team[i][0]*100+team[i][1]+"|"+(team[j][0]*100+team[j][1]);
-        if(wantKey.has(k)){marks[i]=marks[j]=true; satisfied.add(k);}
-        const c=seen.get(k)||0; seen.set(k,c+1);
+      html+=`<tr><td class="tno">${t+1}</td>`;
+      for(let c=0;c<4;c++){
+        const idx = teams[r][t][c];
+        const key = r+"|"+t+"|"+c;
+        const isSel = SEL && SEL.r===r && SEL.t===t && SEL.c===c;
+        const isTarget = SEL && SEL.r===r && SEL.c===c && SEL.t!==t;
+        const cls = ["cell", isSel?"sel":"", isTarget?"target":"", an.repCells.has(key)?"rep":""].filter(Boolean).join(" ");
+        const tip = isSel ? "Selected — click a green player to swap, or click again to cancel"
+          : isTarget ? "Click to swap with your selected player"
+          : "Click to select for a swap ("+letters[c]+" players can only swap with "+letters[c]+" players in this event)";
+        html+=`<td><span class="${cls}" data-r="${r}" data-t="${t}" data-c="${c}" title="${tip}">${cols[c][idx]}${an.heartCells.has(key)?'<span class="heart" title="Preference granted — these two asked to play together">&#10084;</span>':''}${an.repCells.has(key)?'<span class="warn" title="Part of a repeated pairing — see The Card below for details">&#9888;</span>':''}</span></td>`;
       }
-      html+=`<tr><td class="tno">${t+1}</td>`+team.map((p,i)=>`<td>${cols[p[0]][p[1]]}${marks[i]?'<span class="heart">&#10084;</span>':''}</td>`).join("")+`</tr>`;
+      html+=`</tr>`;
     }
     html+=`</tbody></table></div>`;
   }
 
-  // reports
-  const repeats=[]; for(const [k,c] of seen) if(c>1){
+  const repItems = an.repeats.map(([k,v])=>{
     const [x,y]=k.split("|").map(Number);
-    repeats.push(`${cols[x/100|0][x%100]} &amp; ${cols[y/100|0][y%100]} (${c}&times;)`);
-  }
+    const where = v.map(loc=>eventNames[loc.r]+" T"+(loc.t+1)).join(", ");
+    return `${cols[x/100|0][x%100]} &amp; ${cols[y/100|0][y%100]} &mdash; ${where}`;
+  });
   let prefHtml="";
-  if(prefList.length===0) prefHtml="<li>No preferences entered.</li>";
-  for(const p of prefList){
-    const k1=p.a[0]*100+p.a[1]+"|"+(p.b[0]*100+p.b[1]);
-    const k2=p.b[0]*100+p.b[1]+"|"+(p.a[0]*100+p.a[1]);
-    const ok = satisfied.has(k1)||satisfied.has(k2);
-    prefHtml+=`<li>${cols[p.a[0]][p.a[1]]} &amp; ${cols[p.b[0]][p.b[1]]} (weight ${p.w}) &mdash; <span class="${ok?'ok':'bad'}">${ok?'granted':'not granted'}</span></li>`;
+  if(an.prefList.length===0) prefHtml="<li>No preferences entered.</li>";
+  for(const p of an.prefList){
+    const k1=p.pa[0]*100+p.pa[1]+"|"+(p.pb[0]*100+p.pb[1]);
+    const k2=p.pb[0]*100+p.pb[1]+"|"+(p.pa[0]*100+p.pa[1]);
+    const ok = an.satisfied.has(k1)||an.satisfied.has(k2);
+    prefHtml+=`<li>${p.a} &amp; ${p.b} (weight ${p.w}) &mdash; <span class="${ok?'ok':'bad'}">${ok?'granted':'not granted'}</span></li>`;
   }
   html+=`<div class="panel" id="reportPanel"><h2><span class="hole">&#9873;</span> The Card</h2><div class="report">
-    <div class="rbox"><h4>Repeat check</h4>${repeats.length===0?'<p class="ok">Clean card — no two players share a foursome twice.</p>':'<ul><li>'+repeats.join('</li><li>')+'</li></ul>'}</div>
+    <div class="rbox"><h4>Repeat check</h4>${repItems.length===0?'<p class="ok">Clean card — no two players share a foursome twice.</p>':'<ul><li>'+repItems.join('</li><li>')+'</li></ul>'}</div>
     <div class="rbox"><h4>Preference results</h4><ul>${prefHtml}</ul></div>
   </div>
   <div class="export-bar">
-    <button class="toolbtn" onclick="copyResults()">Copy as text</button>
-    <button class="toolbtn" onclick="downloadCSV()">Download CSV</button>
-    <button class="toolbtn" onclick="downloadText()">Download text</button>
-    <button class="toolbtn" onclick="window.print()">Print / PDF</button>
+    <button class="toolbtn" onclick="savePairing()" title="Download these exact teams (including hand-swaps) to reload and edit later">Save pairing</button>
+    <button class="toolbtn" onclick="copyResults()" title="Copy the teams as plain text — paste into a group chat or email">Copy as text</button>
+    <button class="toolbtn" onclick="downloadCSV()" title="Download a spreadsheet-ready file (opens in Excel)">Download CSV</button>
+    <button class="toolbtn" onclick="downloadText()" title="Download the teams as a plain .txt file">Download text</button>
+    <button class="toolbtn" onclick="window.print()" title="Print-friendly sheet — just the header, teams, and card">Print / PDF</button>
   </div></div>`;
 
   document.getElementById("results").innerHTML=html;
-  status.textContent = repeats.length===0 ? "Done — clean card. Regenerate for a different draw." : "Done — couldn't clear every repeat; try regenerating.";
-  document.getElementById("results").scrollIntoView({behavior:"smooth"});
+  if(scroll && !hasScrolled){ document.getElementById("results").scrollIntoView({behavior:"smooth"}); hasScrolled=true; }
+  if(scroll) status.textContent = repItems.length===0 ? "Done — clean card. Click any two same-letter players to swap." : "Done — repeats flagged in red; swap players to fix or regenerate.";
 }
-/* ---------- save / load setup ---------- */
+
+/* click-to-swap */
+document.getElementById("results").addEventListener("click", e=>{
+  const cell = e.target.closest(".cell");
+  if(!cell) return;
+  const r=+cell.dataset.r, t=+cell.dataset.t, c=+cell.dataset.c;
+  if(!SEL){ SEL={r,t,c}; renderState(false); return; }
+  if(SEL.r===r && SEL.t===t && SEL.c===c){ SEL=null; renderState(false); return; }
+  if(SEL.r===r && SEL.c===c){
+    const tmp = STATE.teams[r][t][c];
+    STATE.teams[r][t][c] = STATE.teams[r][SEL.t][c];
+    STATE.teams[r][SEL.t][c] = tmp;
+    SEL=null; renderState(false);
+    const an=analyze();
+    status.textContent = an.repeats.length===0 ? "Swapped — still a clean card." : "Swapped — heads up, that created "+an.repeats.length+" repeat"+(an.repeats.length>1?"s":"")+" (flagged in red).";
+    return;
+  }
+  SEL={r,t,c}; renderState(false); // different event/column: reselect
+});
+
+/* ================= save / load ================= */
 function dl(filename, text, type){
   const blob = new Blob([text], {type});
   const a = document.createElement("a");
@@ -444,6 +567,7 @@ function dl(filename, text, type){
 }
 function saveSetup(){
   const setup = {
+    type: "cross-creek-setup",
     roster: {A:tA.value, B:tB.value, C:tC.value, D:tD.value},
     events: [...document.querySelectorAll("#events input")].map(i=>i.value),
     prefs: [...document.querySelectorAll(".pref-row")].map(r=>({
@@ -453,54 +577,94 @@ function saveSetup(){
   dl("cross-creek-setup.json", JSON.stringify(setup,null,2), "application/json");
   status.textContent = "Setup saved — keep the file, load it next year.";
 }
+function applySetup(s){
+  if(s.roster){ tA.value=s.roster.A||""; tB.value=s.roster.B||""; tC.value=s.roster.C||""; tD.value=s.roster.D||""; }
+  if(s.events){ document.querySelectorAll("#events input").forEach((el,i)=>{ if(s.events[i]!==undefined) el.value=s.events[i]; }); }
+  document.getElementById("prefs").innerHTML=""; prefCount=0;
+  (s.prefs||[]).forEach(p=>addPref(p.a,p.b,p.w));
+}
 function loadSetup(inp){
   const f = inp.files[0]; if(!f) return;
   const rd = new FileReader();
   rd.onload = () => {
     try{
       const s = JSON.parse(rd.result);
-      if(s.roster){ tA.value=s.roster.A||""; tB.value=s.roster.B||""; tC.value=s.roster.C||""; tD.value=s.roster.D||""; }
-      if(s.events){ document.querySelectorAll("#events input").forEach((el,i)=>{ if(s.events[i]!==undefined) el.value=s.events[i]; }); }
-      document.getElementById("prefs").innerHTML=""; prefCount=0;
-      (s.prefs||[]).forEach(p=>addPref(p.a,p.b,p.w));
+      if(s.type==="cross-creek-pairing"){ importPairing(s); return; }
+      applySetup(s);
       status.textContent = "Setup loaded.";
     }catch(e){ status.textContent = "That file didn't look like a Cross Creek setup."; }
   };
   rd.readAsText(f); inp.value="";
 }
+function savePairing(){
+  if(!STATE){ status.textContent="Generate pairings first."; return; }
+  const out = {
+    type: "cross-creek-pairing",
+    roster: {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")},
+    events: STATE.eventNames,
+    prefs: [...document.querySelectorAll(".pref-row")].map(r=>({
+      a:r.querySelector(".p1").value, b:r.querySelector(".p2").value,
+      w:+r.querySelector("input[type=range]").value })),
+    teams: STATE.teams
+  };
+  dl("cross-creek-pairing.json", JSON.stringify(out,null,2), "application/json");
+  status.textContent = "Pairing saved — load it any time to keep editing.";
+}
+function importPairing(s){
+  applySetup(s);
+  const cols = roster();
+  const n = cols[0].length;
+  const R = (s.events||[]).length;
+  const ok = Array.isArray(s.teams) && s.teams.length===R &&
+    s.teams.every(rt=>Array.isArray(rt)&&rt.length===n&&rt.every(tm=>Array.isArray(tm)&&tm.length===4&&tm.every(i=>Number.isInteger(i)&&i>=0&&i<n)));
+  if(!ok){ status.textContent="Pairing file loaded its setup, but the team data looked off."; return; }
+  STATE = {cols, n, eventNames: s.events, teams: s.teams};
+  SEL=null; hasScrolled=false;
+  renderState(true);
+  status.textContent = "Pairing loaded — click players to rearrange.";
+}
+function loadPairing(inp){
+  const f = inp.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{
+      const s = JSON.parse(rd.result);
+      if(s.type!=="cross-creek-pairing"){ status.textContent="That's a setup file — use Load setup for that one."; return; }
+      importPairing(s);
+    }catch(e){ status.textContent = "That file didn't look like a Cross Creek pairing."; }
+  };
+  rd.readAsText(f); inp.value="";
+}
 
-/* ---------- export results ---------- */
+/* ================= exports ================= */
 function resultsText(){
-  if(!LAST) return "";
-  const {rounds,cols,n,R,eventNames} = LAST;
+  const {cols,n,eventNames,teams} = STATE;
   let out = "CROSS CREEK PAIRINGS\n====================\n";
-  for(let r=0;r<R;r++){
+  for(let r=0;r<teams.length;r++){
     out += "\n" + eventNames[r].toUpperCase() + "\n";
     for(let t=0;t<n;t++){
-      const team=[cols[0][t],cols[1][rounds[r][0][t]],cols[2][rounds[r][1][t]],cols[3][rounds[r][2][t]]];
-      out += "  Team "+(t+1)+": "+team.join(", ")+"\n";
+      out += "  Team "+(t+1)+": "+teams[r][t].map((idx,c)=>cols[c][idx]).join(", ")+"\n";
     }
   }
   return out;
 }
 function copyResults(){
-  if(!LAST){ status.textContent="Generate pairings first."; return; }
+  if(!STATE){ status.textContent="Generate pairings first."; return; }
   navigator.clipboard.writeText(resultsText()).then(
     ()=>{ status.textContent="Copied — paste it anywhere."; },
     ()=>{ downloadText(); });
 }
 function downloadText(){
-  if(!LAST){ status.textContent="Generate pairings first."; return; }
+  if(!STATE){ status.textContent="Generate pairings first."; return; }
   dl("cross-creek-pairings.txt", resultsText(), "text/plain");
 }
 function downloadCSV(){
-  if(!LAST){ status.textContent="Generate pairings first."; return; }
-  const {rounds,cols,n,R,eventNames} = LAST;
+  if(!STATE){ status.textContent="Generate pairings first."; return; }
+  const {cols,n,eventNames,teams} = STATE;
   let csv = "Event,Team,A,B,C,D\n";
   const esc = s => '"'+String(s).replace(/"/g,'""')+'"';
-  for(let r=0;r<R;r++) for(let t=0;t<n;t++){
-    csv += [esc(eventNames[r]), t+1, esc(cols[0][t]), esc(cols[1][rounds[r][0][t]]),
-            esc(cols[2][rounds[r][1][t]]), esc(cols[3][rounds[r][2][t]])].join(",")+"\n";
+  for(let r=0;r<teams.length;r++) for(let t=0;t<n;t++){
+    csv += [esc(eventNames[r]), t+1, ...teams[r][t].map((idx,c)=>esc(cols[c][idx]))].join(",")+"\n";
   }
   dl("cross-creek-pairings.csv", csv, "text/csv");
 }
