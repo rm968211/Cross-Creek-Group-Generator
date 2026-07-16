@@ -689,10 +689,10 @@ function renderState(scroll){
   const lockedGrid = STATE.locked || [];
   const an = analyze();
 
-  let html = `<div class="edit-note">&#9997;&#65039; <b>Hand-editing is on.</b> Click a player, then click another player in the <em>same letter column of the same event</em> to swap them. The repeat check and hearts update instantly. Letter columns stay pure &mdash; an A can only trade places with an A. Click the &#128275; next to a team number to <b>lock</b> that foursome in place &mdash; locked teams (highlighted) stay put next time you hit Generate, so only the rest get reshuffled.</div>`;
+  let html = `<div class="edit-note">&#9997;&#65039; <b>Hand-editing is on.</b> Click a player, then click another player in the <em>same letter column of the same event</em> to swap them. Click the &#128275; next to a team number to <b>lock</b> that foursome in place &mdash; locked teams (highlighted) stay put next time you hit Generate, so only the rest get reshuffled.</div>`;
 
   for(let r=0;r<teams.length;r++){
-    html+=`<div class="event-card"><div class="ehead"><h3>${eventNames[r]}</h3><span>${n} teams &middot; one per letter</span></div>
+    html+=`<div class="event-card"><div class="ehead"><h3>${eventNames[r]}</h3></div>
       <div class="table-scroll"><table><thead><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>`;
     for(let t=0;t<n;t++){
       const locked = !!(lockedGrid[r] && lockedGrid[r][t]);
