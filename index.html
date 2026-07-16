@@ -43,6 +43,30 @@
     font-weight: normal;
     letter-spacing:.04em;
     margin: 4px 0 2px;
+    position: relative;
+    display: inline-block;
+  }
+  header h1 .logo{
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 2.6em;
+    width: 2.6em;
+    margin-left: 16px;
+    object-fit: contain;
+    vertical-align: middle;
+  }
+  @media(max-width:640px){
+    header h1{ display:block; }
+    header h1 .logo{
+      position: static;
+      display: block;
+      transform: none;
+      height: 110px;
+      width: 110px;
+      margin: 10px auto 0;
+    }
   }
   header .sub{font-style:italic; color:var(--ink-soft); font-size:15px}
 
@@ -268,8 +292,8 @@
 <div class="wrap">
 
 <header>
-  <div class="est">Est. Annually &middot; 28 Players &middot; 7 Foursomes</div>
-  <h1>Cross Creek Pairings</h1>
+  <div class="est">28 Players &middot; 7 Foursomes</div>
+  <h1>Cross Creek Pairings<img class="logo" src="jeff2.png" alt="Jeff"></h1>
   <div class="sub">Powered by JI (Jeff Intelligence)&trade;</div>
 </header>
 
@@ -281,7 +305,7 @@
     <div class="tier"><label><b>C</b> players <span class="cnt" id="cntC"></span></label><textarea id="tC"></textarea></div>
     <div class="tier"><label><b>D</b> players <span class="cnt" id="cntD"></span></label><textarea id="tD"></textarea></div>
   </div>
-  <p class="hint">One player per line &mdash; in all four boxes. Top to bottom in each box is that player's rank within their tier (1 = top). Each column needs the same number of names.</p>
+  <p class="hint">One player per line in all four boxes. Top to bottom in each box is that player's rank within their tier (1 = top). Each column needs the same number of names.</p>
   <div class="err-note" id="rosterErr"></div>
 </section>
 
@@ -308,7 +332,7 @@
       <span class="wv">0</span>
     </span>
   </div>
-  <p class="hint">Higher this slider, the harder the solver works to even out each team's total rank (A+B+C+D ranks added up) across every foursome &mdash; at 0, rank is ignored entirely, same as before.</p>
+  <p class="hint">Higher this slider, the harder the solver works to even out each team's total rank (A+B+C+D ranks added up) across every foursome &mdash; at 0, rank is ignored entirely. The real question being asked here is how badly do you wanna fuck over Zeke?</p>
 </section>
 
 <section class="panel">
