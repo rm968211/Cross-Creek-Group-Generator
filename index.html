@@ -148,6 +148,18 @@
   .addbtn:hover{background:var(--fair);color:#fff;border-style:solid}
   .pref-flag{font-size:13px;color:var(--tee-red);font-style:italic;margin-top:4px}
 
+  .rank-balance{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+  .rank-balance label{
+    font-family: Verdana, sans-serif; font-size:11px; letter-spacing:.15em;
+    text-transform:uppercase; color: var(--ink-soft);
+    display:block; margin-bottom:8px;
+  }
+  .rtag{
+    font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.03em;
+    color:var(--ink-soft);
+    margin-left:6px;
+  }
+
   .gen-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .go{
     font-family: Verdana, sans-serif; font-size:14px; letter-spacing:.2em; text-transform:uppercase;
@@ -261,7 +273,7 @@
     <div class="tier"><label><b>C</b> players <span class="cnt" id="cntC"></span></label><textarea id="tC"></textarea></div>
     <div class="tier"><label><b>D</b> players <span class="cnt" id="cntD"></span></label><textarea id="tD"></textarea></div>
   </div>
-  <p class="hint">One player per line &mdash; in all four boxes. Each column needs the same number of names.</p>
+  <p class="hint">One player per line &mdash; in all four boxes. Top to bottom in each box is that player's rank within their tier (1 = top). Each column needs the same number of names.</p>
   <div class="err-note" id="rosterErr"></div>
 </section>
 
@@ -279,7 +291,16 @@
   <h2><span class="hole">3</span> Preferences</h2>
   <div id="prefs"></div>
   <button class="addbtn" onclick="addPref()" title="Add a 'wants to play with' request — the solver will try to put them on a team together in one event">+ Add a preference</button>
-  <p class="hint">A preference is a nudge, not a promise. Heavier weight, harder the solver tries. Two players can share a team in at most <em>one</em> event (twice would be a repeat), and two players from the same letter column can never be teammates.</p>
+  <p class="hint">A preference is a nudge, not a promise. Heavier weight, harder the solver tries. Two players can share a team in at most <em>one</em> event (twice would be a repeat), and two players from the same letter column can never be teammates. If one player shows up in several preferences (say Denny wants Fletcher, Doug, <em>and</em> Nate), the solver favors landing all of them in the <em>same</em> foursome over granting each wish in a separate event.</p>
+
+  <div class="rank-balance">
+    <label>Balance by rank</label>
+    <span class="wcell" style="max-width:360px">
+      <input type="range" id="rankBalance" min="0" max="10" value="0" oninput="this.nextElementSibling.textContent=this.value" title="0 = ranks ignored (today's behavior). 10 = solver works hardest to even out team strength by rank.">
+      <span class="wv">0</span>
+    </span>
+  </div>
+  <p class="hint">Higher this slider, the harder the solver works to even out each team's total rank (A+B+C+D ranks added up) across every foursome &mdash; at 0, rank is ignored entirely, same as before.</p>
 </section>
 
 <section class="panel">
@@ -299,6 +320,7 @@
     <div class="rbox">
       <h4>On the team sheets</h4>
       <ul>
+        <li><span class="rtag" style="margin-left:0">A5</span> &nbsp;The player's letter tier and rank within it (1 = top of that tier's list, going down)</li>
         <li><span class="heart" style="margin-left:0">&#10084;</span> &nbsp;A granted preference &mdash; these two asked to play together and got it</li>
         <li><span class="warn" style="margin-left:0">&#9888;</span> + <span style="text-decoration:underline dotted var(--tee-red) 2px;text-underline-offset:3px">red underline</span> &nbsp;This player is part of a repeated pairing &mdash; check The Card for who and where</li>
         <li><span style="background:var(--gold);color:#fff;padding:1px 8px;border-radius:3px">gold</span> &nbsp;The player you've selected for a swap</li>
@@ -309,6 +331,7 @@
       <h4>Controls</h4>
       <ul>
         <li><b>Weight slider (1&ndash;10)</b> &mdash; how hard the solver tries to grant a wish; 10 is top priority, but no weight can force a repeat</li>
+        <li><b>Balance by rank slider (0&ndash;10)</b> &mdash; how hard the solver works to even out team strength using each player's in-tier rank; 0 ignores rank entirely, 10 makes it a top priority (still never forces a repeat)</li>
         <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, and the teams if you've generated them. Load it and you're back exactly where you left off</li>
         <li><b>Copy / CSV / Text / Print</b> &mdash; exports the sheet exactly as shown, including your hand-swaps</li>
       </ul>
@@ -371,13 +394,14 @@ function checkColumns(){
 checkColumns();
 function allPlayers(){
   const [A,B,C,D] = roster();
-  return [].concat(A.map(n=>({n,t:"A"})),B.map(n=>({n,t:"B"})),C.map(n=>({n,t:"C"})),D.map(n=>({n,t:"D"})));
+  const withRank = (arr,t)=>arr.map((n,i)=>({n,t,rank:i+1}));
+  return [].concat(withRank(A,"A"),withRank(B,"B"),withRank(C,"C"),withRank(D,"D"));
 }
 
 /* ================= preferences UI ================= */
 let prefCount = 0;
 function playerOptions(sel){
-  return allPlayers().map(p=>`<option ${p.n===sel?"selected":""} value="${p.n}">${p.n} (${p.t})</option>`).join("");
+  return allPlayers().map(p=>`<option ${p.n===sel?"selected":""} value="${p.n}">${p.n} (${p.t}${p.rank})</option>`).join("");
 }
 function addPref(p1, p2, w=10){
   const id = "pref"+(prefCount++);
@@ -434,12 +458,13 @@ function generate(){
   const n = cols[0].length;
   const eventNames = [...document.querySelectorAll("#events input")].map(i=>i.value.trim()||"Event");
   const prefs = readPrefs();
+  const rankWeight = +document.getElementById("rankBalance").value;
   goBtn.disabled = true; status.textContent = "Shuffling the shoe...";
   hasScrolled = false;
-  setTimeout(()=>{ run(cols,n,eventNames,prefs); goBtn.disabled=false; }, 30);
+  setTimeout(()=>{ run(cols,n,eventNames,prefs,rankWeight); goBtn.disabled=false; }, 30);
 }
 
-function run(cols,n,eventNames,prefs){
+function run(cols,n,eventNames,prefs,rankWeight){
   const R = eventNames.length;
   const findP = nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return [c,i];} return null; };
   const prefList = [];
@@ -447,12 +472,23 @@ function run(cols,n,eventNames,prefs){
     const pa=findP(p.a), pb=findP(p.b);
     if(pa&&pb) prefList.push({a:pa,b:pb,w:p.w});
   }
+  /* if anyone shows up in 2+ preferences, keep searching past a merely-good
+     solution so the solver has a chance to land the whole group in one team */
+  const prefDegree = new Map();
+  for(const p of prefList){
+    const ka=p.a[0]*100+p.a[1], kb=p.b[0]*100+p.b[1];
+    prefDegree.set(ka,(prefDegree.get(ka)||0)+1);
+    prefDegree.set(kb,(prefDegree.get(kb)||0)+1);
+  }
+  const hasClusters = [...prefDegree.values()].some(d=>d>=2);
+  const GROUP_FACTOR = 1.5;
   const REP = 100000;
   const randPerm = ()=>{const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
 
   function score(rounds){
     const seen = new Map(); let repeats=0;
     const paired = new Set();
+    let groupBonus=0;
     for(let r=0;r<R;r++) for(let t=0;t<n;t++){
       const team=[[0,t],[1,rounds[r][0][t]],[2,rounds[r][1][t]],[3,rounds[r][2][t]]];
       for(let i=0;i<4;i++) for(let j=i+1;j<4;j++){
@@ -460,6 +496,14 @@ function run(cols,n,eventNames,prefs){
         const c = seen.get(k)||0; if(c>0) repeats++; seen.set(k,c+1);
         paired.add(k);
       }
+      /* reward landing multiple requested preferences in this same foursome at once,
+         on top of the flat per-pair credit below — encourages bundling a group together
+         in one event rather than satisfying each pair separately across different ones */
+      let gk=0, gw=0;
+      for(const p of prefList){
+        if(team[p.a[0]][1]===p.a[1] && team[p.b[0]][1]===p.b[1]){ gk++; gw+=p.w; }
+      }
+      if(gk>=2) groupBonus += (gk-1)*(gw/gk)*GROUP_FACTOR;
     }
     let prefPts=0;
     for(const p of prefList){
@@ -467,7 +511,14 @@ function run(cols,n,eventNames,prefs){
       const k2=p.b[0]*100+p.b[1]+"|"+(p.a[0]*100+p.a[1]);
       if(paired.has(k1)||paired.has(k2)) prefPts += p.w;
     }
-    return {cost: repeats*REP - prefPts, repeats, prefPts};
+    let imbalance=0;
+    for(let r=0;r<R;r++){
+      const sums=[];
+      for(let t=0;t<n;t++) sums.push((t+1)+(rounds[r][0][t]+1)+(rounds[r][1][t]+1)+(rounds[r][2][t]+1));
+      const mean = sums.reduce((a,b)=>a+b,0)/n;
+      for(const s of sums) imbalance += (s-mean)*(s-mean);
+    }
+    return {cost: repeats*REP - prefPts - groupBonus + rankWeight*imbalance/(R*10), repeats, prefPts, imbalance, groupBonus};
   }
 
   let best=null, bestScore=null;
@@ -485,10 +536,10 @@ function run(cols,n,eventNames,prefs){
       const T = 1 - it/ITERS;
       if(nxt.cost<=cur.cost || Math.random()<0.02*T) cur=nxt;
       else [perm[i],perm[j]]=[perm[j],perm[i]];
-      if(cur.repeats===0 && cur.prefPts===maxPref) break;
+      if(cur.repeats===0 && cur.prefPts===maxPref && (rankWeight===0 || cur.imbalance===0) && !hasClusters) break;
     }
     if(bestScore===null || cur.cost<bestScore.cost){ bestScore=cur; best=JSON.parse(JSON.stringify(rounds)); }
-    if(bestScore.repeats===0 && bestScore.prefPts===maxPref) break;
+    if(bestScore.repeats===0 && bestScore.prefPts===maxPref && (rankWeight===0 || bestScore.imbalance===0) && !hasClusters) break;
   }
 
   const teams=[];
@@ -563,7 +614,7 @@ function renderState(scroll){
         const tip = isSel ? "Selected — click a green player to swap, or click again to cancel"
           : isTarget ? "Click to swap with your selected player"
           : "Click to select for a swap ("+letters[c]+" players can only swap with "+letters[c]+" players in this event)";
-        html+=`<td><span class="${cls}" data-r="${r}" data-t="${t}" data-c="${c}" title="${tip}">${cols[c][idx]}${an.heartCells.has(key)?'<span class="heart" title="Preference granted — these two asked to play together">&#10084;</span>':''}${an.repCells.has(key)?'<span class="warn" title="Part of a repeated pairing — see The Card below for details">&#9888;</span>':''}</span></td>`;
+        html+=`<td><span class="${cls}" data-r="${r}" data-t="${t}" data-c="${c}" title="${tip}">${cols[c][idx]}<span class="rtag">${letters[c]}${idx+1}</span>${an.heartCells.has(key)?'<span class="heart" title="Preference granted — these two asked to play together">&#10084;</span>':''}${an.repCells.has(key)?'<span class="warn" title="Part of a repeated pairing — see The Card below for details">&#9888;</span>':''}</span></td>`;
       }
       html+=`</tr>`;
     }
@@ -634,7 +685,8 @@ function saveAll(){
     events: [...document.querySelectorAll("#events input")].map(i=>i.value),
     prefs: [...document.querySelectorAll(".pref-row")].map(r=>({
       a:r.querySelector(".p1").value, b:r.querySelector(".p2").value,
-      w:+r.querySelector("input[type=range]").value }))
+      w:+r.querySelector("input[type=range]").value })),
+    rankWeight: +document.getElementById("rankBalance").value
   };
   if(STATE){
     out.roster = {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")};
@@ -650,6 +702,9 @@ function applySetup(s){
   if(s.events){ document.querySelectorAll("#events input").forEach((el,i)=>{ if(s.events[i]!==undefined) el.value=s.events[i]; }); }
   document.getElementById("prefs").innerHTML=""; prefCount=0;
   (s.prefs||[]).forEach(p=>addPref(p.a,p.b,p.w));
+  const rb = document.getElementById("rankBalance");
+  rb.value = s.rankWeight!==undefined ? s.rankWeight : 0;
+  rb.nextElementSibling.textContent = rb.value;
   checkColumns();
 }
 function loadAll(inp){
@@ -686,7 +741,7 @@ function resultsText(){
   for(let r=0;r<teams.length;r++){
     out += "\n" + eventNames[r].toUpperCase() + "\n";
     for(let t=0;t<n;t++){
-      out += "  Team "+(t+1)+": "+teams[r][t].map((idx,c)=>cols[c][idx]).join(", ")+"\n";
+      out += "  Team "+(t+1)+": "+teams[r][t].map((idx,c)=>cols[c][idx]+" ("+letters[c]+(idx+1)+")").join(", ")+"\n";
     }
   }
   return out;
@@ -707,7 +762,7 @@ function downloadCSV(){
   let csv = "Event,Team,A,B,C,D\n";
   const esc = s => '"'+String(s).replace(/"/g,'""')+'"';
   for(let r=0;r<teams.length;r++) for(let t=0;t<n;t++){
-    csv += [esc(eventNames[r]), t+1, ...teams[r][t].map((idx,c)=>esc(cols[c][idx]))].join(",")+"\n";
+    csv += [esc(eventNames[r]), t+1, ...teams[r][t].map((idx,c)=>esc(cols[c][idx]+" ("+letters[c]+(idx+1)+")"))].join(",")+"\n";
   }
   dl("cross-creek-pairings.csv", csv, "text/csv");
 }
