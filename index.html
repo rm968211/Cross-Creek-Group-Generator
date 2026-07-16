@@ -141,7 +141,9 @@
     gap:8px; align-items:center; margin-bottom:8px;
   }
   @media(max-width:640px){.pref-row{grid-template-columns:1fr 1fr; }
-    .pref-row .amp{display:none}.pref-row .wcell{grid-column:1}.pref-row .xbtn{grid-column:2;justify-self:end}}
+    .pref-row .amp{display:none}
+    .pref-row .p1{grid-column:1}.pref-row .p2{grid-column:2}
+    .pref-row .wcell{grid-column:1}.pref-row .xbtn{grid-column:2;justify-self:end}}
   .pref-row select{
     font-family: Georgia, serif; font-size:14px; padding:8px;
     background:#fff; border:1px solid var(--line); border-radius:3px; color:var(--ink); width:100%;
@@ -225,6 +227,7 @@
   }
   .event-card .ehead h3{font-weight:normal;font-size:18px;letter-spacing:.03em}
   .event-card .ehead span{font-family:Verdana,sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;opacity:.85}
+  .table-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch;}
   table{width:100%;border-collapse:collapse}
   th,td{padding:0;text-align:left;font-size:14px}
   thead th{
@@ -251,6 +254,13 @@
     border:1px dashed transparent;
     border-radius:3px;
     -webkit-user-select:none; user-select:none;
+    overflow-wrap:anywhere; word-break:break-word;
+  }
+  @media(max-width:480px){
+    thead th{padding:7px 8px}
+    td.tno{padding:7px 6px}
+    td .cell{padding:7px 8px; font-size:13px}
+    .rtag{font-size:9px}
   }
   td .cell:hover{border-color:var(--gold); background:rgba(168,132,60,.08)}
   td .cell.sel{
@@ -683,10 +693,10 @@ function renderState(scroll){
 
   for(let r=0;r<teams.length;r++){
     html+=`<div class="event-card"><div class="ehead"><h3>${eventNames[r]}</h3><span>${n} teams &middot; one per letter</span></div>
-      <table><thead><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>`;
+      <div class="table-scroll"><table><thead><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>`;
     for(let t=0;t<n;t++){
       const locked = !!(lockedGrid[r] && lockedGrid[r][t]);
-      html+=`<tr class="${locked?'locked-row':''}"><td class="tno"><button class="lockbtn${locked?' on':''}" data-r="${r}" data-t="${t}" title="${locked?'Locked — this team stays put when you regenerate. Click to unlock.':'Click to lock this team so it stays put when you regenerate.'}">${locked?'&#128274;':'&#128275;'}</button>${t+1}</td>`;
+      html+=`<tr class="${locked?'locked-row':''}"><td class="tno"><button class="lockbtn${locked?' on':''}" data-r="${r}" data-t="${t}" title="${locked?'Locked — this team stays put when you regenerate. Click to unlock.':'Click to lock this team so it stays put when you regenerate.'}">${locked?'&#128274;':'&#128275;'}</button> ${t+1}</td>`;
       for(let c=0;c<4;c++){
         const idx = teams[r][t][c];
         const key = r+"|"+t+"|"+c;
@@ -696,11 +706,11 @@ function renderState(scroll){
         const tip = isSel ? "Selected — click a green player to swap, or click again to cancel"
           : isTarget ? "Click to swap with your selected player"
           : "Click to select for a swap ("+letters[c]+" players can only swap with "+letters[c]+" players in this event)";
-        html+=`<td><span class="${cls}" data-r="${r}" data-t="${t}" data-c="${c}" title="${tip}">${cols[c][idx]}<span class="rtag">${letters[c]}${idx+1}</span>${an.heartCells.has(key)?'<span class="heart" title="Preference granted — these two asked to play together">&#10084;</span>':''}${an.repCells.has(key)?'<span class="warn" title="Part of a repeated pairing — see The Card below for details">&#9888;</span>':''}</span></td>`;
+        html+=`<td><span class="${cls}" data-r="${r}" data-t="${t}" data-c="${c}" title="${tip}">${cols[c][idx]} <span class="rtag">${letters[c]}${idx+1}</span>${an.heartCells.has(key)?' <span class="heart" title="Preference granted — these two asked to play together">&#10084;</span>':''}${an.repCells.has(key)?' <span class="warn" title="Part of a repeated pairing — see The Card below for details">&#9888;</span>':''}</span></td>`;
       }
       html+=`</tr>`;
     }
-    html+=`</tbody></table></div>`;
+    html+=`</tbody></table></div></div>`;
   }
 
   const repItems = an.repeats.map(([k,v])=>{
