@@ -211,7 +211,15 @@
   }
   tbody tr{border-bottom:1px solid var(--line)}
   tbody tr:nth-child(even){background:rgba(47,107,69,.045)}
-  td.tno{font-family:Verdana,sans-serif;font-size:11px;color:var(--tee-red);width:34px;padding:9px 12px}
+  tbody tr.locked-row, tbody tr.locked-row:nth-child(even){background:rgba(168,132,60,.14)}
+  td.tno{font-family:Verdana,sans-serif;font-size:11px;color:var(--tee-red);width:34px;padding:9px 12px;white-space:nowrap}
+  .lockbtn{
+    background:none;border:none;cursor:pointer;
+    font-size:12px;vertical-align:middle;margin-right:3px;
+    opacity:.4;padding:2px;
+  }
+  .lockbtn:hover{opacity:.9}
+  .lockbtn.on{opacity:1}
   td .cell{
     display:block; width:100%;
     padding:9px 12px;
@@ -306,7 +314,7 @@
 <section class="panel">
   <h2><span class="hole">4</span> Tee It Up</h2>
   <div class="gen-bar">
-    <button class="go" id="goBtn" onclick="generate()" title="Solve for teams: zero repeats first, granted preferences second">Generate pairings</button>
+    <button class="go" id="goBtn" onclick="generate()" title="Solve for teams: zero repeats first, granted preferences second. Locked teams (padlock icon on the results below) stay put — only the unlocked ones get reshuffled.">Generate pairings</button>
     <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, and the teams if you've generated them">Save</button>
     <button class="toolbtn" onclick="loadFile.click()" title="Load a saved file — restores everything, teams included if the file has them">Load</button>
     <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadAll(this)">
@@ -332,6 +340,7 @@
       <ul>
         <li><b>Weight slider (1&ndash;10)</b> &mdash; how hard the solver tries to grant a wish; 10 is top priority, but no weight can force a repeat</li>
         <li><b>Balance by rank slider (0&ndash;10)</b> &mdash; how hard the solver works to even out team strength using each player's in-tier rank; 0 ignores rank entirely, 10 makes it a top priority (still never forces a repeat)</li>
+        <li><b>&#128275; / &#128274; lock icon</b> &mdash; click a team's padlock to freeze that exact foursome; the next Generate leaves every locked team alone and only reshuffles the rest. Handy once a batch of teams looks right and you just want the solver to keep working on the ones that don't yet</li>
         <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, and the teams if you've generated them. Load it and you're back exactly where you left off</li>
         <li><b>Copy / CSV / Text / Print</b> &mdash; exports the sheet exactly as shown, including your hand-swaps</li>
       </ul>
@@ -459,14 +468,50 @@ function generate(){
   const eventNames = [...document.querySelectorAll("#events input")].map(i=>i.value.trim()||"Event");
   const prefs = readPrefs();
   const rankWeight = +document.getElementById("rankBalance").value;
+  /* carry forward locked teams from the current board only if the roster
+     hasn't changed underneath it — otherwise locked indices could point at the wrong people */
+  const carryLocks = STATE && sameCols(STATE.cols, cols) && STATE.eventNames.length===eventNames.length;
+  const prevLocked = carryLocks ? STATE.locked : null;
+  const prevTeams = carryLocks ? STATE.teams : null;
   goBtn.disabled = true; status.textContent = "Shuffling the shoe...";
   hasScrolled = false;
-  setTimeout(()=>{ run(cols,n,eventNames,prefs,rankWeight); goBtn.disabled=false; }, 30);
+  setTimeout(()=>{ run(cols,n,eventNames,prefs,rankWeight,prevLocked,prevTeams); goBtn.disabled=false; }, 30);
+}
+function sameCols(a,b){
+  if(!a || !b || a.length!==b.length) return false;
+  for(let c=0;c<a.length;c++){
+    if(a[c].length!==b[c].length) return false;
+    for(let i=0;i<a[c].length;i++) if(a[c][i]!==b[c][i]) return false;
+  }
+  return true;
 }
 
-function run(cols,n,eventNames,prefs,rankWeight){
+function run(cols,n,eventNames,prefs,rankWeight,prevLocked,prevTeams){
   const R = eventNames.length;
   const findP = nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return [c,i];} return null; };
+  /* lockedFixed[r] = {t: [bIdx,cIdx,dIdx]} for teams the user locked in place;
+     freeSlots[r] = team indices still open to shuffle in that event */
+  const lockedFixed = [], freeSlots = [];
+  for(let r=0;r<R;r++){
+    const fixed = {};
+    if(prevLocked && prevLocked[r] && prevTeams && prevTeams[r]){
+      for(let t=0;t<n;t++) if(prevLocked[r][t]) fixed[t] = [prevTeams[r][t][1], prevTeams[r][t][2], prevTeams[r][t][3]];
+    }
+    lockedFixed.push(fixed);
+    const free = [];
+    for(let t=0;t<n;t++) if(!(t in fixed)) free.push(t);
+    freeSlots.push(free);
+  }
+  function constrainedPerm(fixedMap){
+    const used = new Set(Object.values(fixedMap));
+    const freeVals = [];
+    for(let v=0; v<n; v++) if(!used.has(v)) freeVals.push(v);
+    for(let i=freeVals.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[freeVals[i],freeVals[j]]=[freeVals[j],freeVals[i]];}
+    const perm = new Array(n);
+    let fi=0;
+    for(let t=0;t<n;t++) perm[t] = (t in fixedMap) ? fixedMap[t] : freeVals[fi++];
+    return perm;
+  }
   const prefList = [];
   for(const p of prefs){
     const pa=findP(p.a), pb=findP(p.b);
@@ -483,7 +528,6 @@ function run(cols,n,eventNames,prefs,rankWeight){
   const hasClusters = [...prefDegree.values()].some(d=>d>=2);
   const GROUP_FACTOR = 1.5;
   const REP = 100000;
-  const randPerm = ()=>{const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}return a;};
 
   function score(rounds){
     const seen = new Map(); let repeats=0;
@@ -525,11 +569,21 @@ function run(cols,n,eventNames,prefs,rankWeight){
   const RESTARTS=6, ITERS=22000;
   const maxPref = prefList.reduce((s,p)=>s+p.w,0);
   for(let rs=0;rs<RESTARTS;rs++){
-    let rounds=[]; for(let r=0;r<R;r++) rounds.push([randPerm(),randPerm(),randPerm()]);
+    let rounds=[];
+    for(let r=0;r<R;r++){
+      const f = lockedFixed[r];
+      const fb={}, fc={}, fd={};
+      for(const tStr in f){ fb[tStr]=f[tStr][0]; fc[tStr]=f[tStr][1]; fd[tStr]=f[tStr][2]; }
+      rounds.push([constrainedPerm(fb), constrainedPerm(fc), constrainedPerm(fd)]);
+    }
     let cur=score(rounds);
     for(let it=0; it<ITERS; it++){
-      const r=Math.random()*R|0, col=Math.random()*3|0;
-      const i=Math.random()*n|0; let j=Math.random()*n|0; if(i===j) j=(j+1)%n;
+      const r=Math.random()*R|0;
+      const free = freeSlots[r];
+      if(free.length<2) continue; // this event is fully locked — nothing left to shuffle
+      const col=Math.random()*3|0;
+      const ii=Math.random()*free.length|0; let jj=Math.random()*free.length|0; if(ii===jj) jj=(jj+1)%free.length;
+      const i=free[ii], j=free[jj];
       const perm=rounds[r][col];
       [perm[i],perm[j]]=[perm[j],perm[i]];
       const nxt=score(rounds);
@@ -547,7 +601,9 @@ function run(cols,n,eventNames,prefs,rankWeight){
     for(let t=0;t<n;t++) rt.push([t, best[r][0][t], best[r][1][t], best[r][2][t]]);
     teams.push(rt);
   }
-  STATE = {cols, n, eventNames, teams};
+  const locked = [];
+  for(let r=0;r<R;r++){ const row=[]; for(let t=0;t<n;t++) row.push(!!(prevLocked && prevLocked[r] && prevLocked[r][t])); locked.push(row); }
+  STATE = {cols, n, eventNames, teams, locked};
   SEL = null;
   renderState(true);
 }
@@ -596,15 +652,17 @@ const letters=["A","B","C","D"];
 function renderState(scroll){
   if(!STATE) return;
   const {cols,n,eventNames,teams} = STATE;
+  const lockedGrid = STATE.locked || [];
   const an = analyze();
 
-  let html = `<div class="edit-note">&#9997;&#65039; <b>Hand-editing is on.</b> Click a player, then click another player in the <em>same letter column of the same event</em> to swap them. The repeat check and hearts update instantly. Letter columns stay pure &mdash; an A can only trade places with an A.</div>`;
+  let html = `<div class="edit-note">&#9997;&#65039; <b>Hand-editing is on.</b> Click a player, then click another player in the <em>same letter column of the same event</em> to swap them. The repeat check and hearts update instantly. Letter columns stay pure &mdash; an A can only trade places with an A. Click the &#128275; next to a team number to <b>lock</b> that foursome in place &mdash; locked teams (highlighted) stay put next time you hit Generate, so only the rest get reshuffled.</div>`;
 
   for(let r=0;r<teams.length;r++){
     html+=`<div class="event-card"><div class="ehead"><h3>${eventNames[r]}</h3><span>${n} teams &middot; one per letter</span></div>
       <table><thead><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>`;
     for(let t=0;t<n;t++){
-      html+=`<tr><td class="tno">${t+1}</td>`;
+      const locked = !!(lockedGrid[r] && lockedGrid[r][t]);
+      html+=`<tr class="${locked?'locked-row':''}"><td class="tno"><button class="lockbtn${locked?' on':''}" data-r="${r}" data-t="${t}" title="${locked?'Locked — this team stays put when you regenerate. Click to unlock.':'Click to lock this team so it stays put when you regenerate.'}">${locked?'&#128274;':'&#128275;'}</button>${t+1}</td>`;
       for(let c=0;c<4;c++){
         const idx = teams[r][t][c];
         const key = r+"|"+t+"|"+c;
@@ -651,8 +709,17 @@ function renderState(scroll){
   if(scroll) status.textContent = repItems.length===0 ? "Done — clean card. Click any two same-letter players to swap." : "Done — repeats flagged in red; swap players to fix or regenerate.";
 }
 
-/* click-to-swap */
+/* click-to-swap, click-to-lock */
 document.getElementById("results").addEventListener("click", e=>{
+  const lockBtn = e.target.closest(".lockbtn");
+  if(lockBtn){
+    const r=+lockBtn.dataset.r, t=+lockBtn.dataset.t;
+    if(!STATE.locked) STATE.locked = STATE.teams.map(rt=>rt.map(()=>false));
+    if(!STATE.locked[r]) STATE.locked[r] = STATE.teams[r].map(()=>false);
+    STATE.locked[r][t] = !STATE.locked[r][t];
+    renderState(false);
+    return;
+  }
   const cell = e.target.closest(".cell");
   if(!cell) return;
   const r=+cell.dataset.r, t=+cell.dataset.t, c=+cell.dataset.c;
@@ -692,6 +759,7 @@ function saveAll(){
     out.roster = {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")};
     out.events = STATE.eventNames;
     out.teams = STATE.teams;
+    out.locked = STATE.locked;
   }
   dl("cross-creek.json", JSON.stringify(out,null,2), "application/json");
   status.textContent = STATE ? "Saved — roster, preferences, and teams, all in one file."
@@ -721,7 +789,9 @@ function loadAll(inp){
         const ok = Array.isArray(s.teams) && s.teams.length===R &&
           s.teams.every(rt=>Array.isArray(rt)&&rt.length===n&&rt.every(tm=>Array.isArray(tm)&&tm.length===4&&tm.every(i=>Number.isInteger(i)&&i>=0&&i<n)));
         if(!ok){ status.textContent="Loaded the roster and preferences, but the team data in that file looked off."; return; }
-        STATE = {cols, n, eventNames: s.events, teams: s.teams};
+        const lockedOk = Array.isArray(s.locked) && s.locked.length===R && s.locked.every(row=>Array.isArray(row)&&row.length===n);
+        const locked = lockedOk ? s.locked.map(row=>row.map(v=>!!v)) : s.teams.map(rt=>rt.map(()=>false));
+        STATE = {cols, n, eventNames: s.events, teams: s.teams, locked};
         SEL=null; hasScrolled=false;
         renderState(true);
         status.textContent = "Loaded — teams restored, click players to rearrange.";
