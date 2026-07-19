@@ -381,7 +381,6 @@
   }
   .udbtn:hover:not(:disabled){background:var(--fair);color:#fff;border-color:var(--fair)}
   .udbtn:disabled{opacity:.25;cursor:default}
-  .udbtn.mini{width:24px;height:24px;font-size:10px}
   .rank-row{cursor:pointer}
   .rank-row:hover{border-color:var(--fair)}
   .rank-row.on{border-color:var(--fair);outline:1px solid var(--fair);background:rgba(47,107,69,.08)}
@@ -391,7 +390,6 @@
   }
   .rank-row .star{color:var(--gold)}
   td.ttime{font-family:Verdana,sans-serif;font-size:11px;color:var(--ink-soft);white-space:nowrap;padding:9px 12px}
-  .roll{color:var(--fair);font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.05em}
   .waitflag{color:var(--tee-red);font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.05em}
   #teeSheet:empty{display:none}
 
@@ -531,13 +529,13 @@
     <button class="go" id="teeGoBtn" onclick="teeOptimize()" title="Rank every possible leadoff group by the best schedule it allows, then build the day around the winner (or whoever you pick below)">Optimize tee order</button>
     <span class="status" id="teeStatus"></span>
   </div>
-  <p class="hint">Arrange the day with the arrows, then optimize. No clocks here &mdash; real minutes depend on pace of play. The goal is simple: order each round's tee-offs so that when a player walks off 18, their next group is due up as soon as possible after. Any waiting is described in <em>tee-offs</em> &mdash; "waits ~2 tee-offs" means everyone in the group is done, then two more groups leave the tee before it's finally their turn.</p>
+  <p class="hint">Arrange the day with the arrows, then optimize. No clocks here &mdash; real minutes depend on pace of play. The goal is simple: order each round's tee-offs so that when a player walks off 18, their next group is due up as soon as possible after. Where a wait can't be avoided, the sheet says so plainly &mdash; "waits while 2 groups tee off" means everyone in that group is done playing before their turn comes up.</p>
 </section>
 
 <section class="panel">
   <h2><span class="hole">2</span> Who Leads Off?</h2>
   <div id="teeRank"></div>
-  <p class="hint">There's rarely just one right answer &mdash; every group is ranked by how smooth the whole day can be <em>if they tee off first in Round 1</em>. &#9733; means the day literally can't flow better than with them out front (ties are common). Click a group to build the day around them. Then fine-tune: the arrows on Round 1's card below nudge any group up or down, and the later rounds instantly re-fit themselves around your order.</p>
+  <p class="hint">There's rarely just one right answer &mdash; every group is ranked by how smooth the whole day can be <em>if they tee off first in Round 1</em>. &#9733; means the day literally can't flow better than with them out front (ties are common). Click a group and the whole day &mdash; every round's tee order below &mdash; rebuilds around them.</p>
 </section>
 
 <div id="teeSheet"></div>
@@ -1165,7 +1163,7 @@ function teeRoundDefs(){
 function teeSync(){
   const defs = teeRoundDefs();
   const keys = defs.map(d=>d.key);
-  if(!TEE) TEE = {seq:[], perm:{}, optimized:false, hash:"", ranking:null, lead:null, manual:false};
+  if(!TEE) TEE = {seq:[], perm:{}, optimized:false, hash:"", ranking:null, lead:null};
   TEE.seq = TEE.seq.filter(k=>keys.includes(k)).concat(keys.filter(k=>!TEE.seq.includes(k)));
   for(const d of defs){
     if(!Array.isArray(TEE.perm[d.key]) || TEE.perm[d.key].length!==d.groups.length
@@ -1176,7 +1174,7 @@ function teeSync(){
   const hash = JSON.stringify(defs.map(d=>[d.key, d.groups.map(g=>g.codes)]));
   if(TEE.hash===null) TEE.hash = hash;              // fresh from a load — adopt as-is
   else if(TEE.hash!==hash){ // groups changed under us — rankings and leadoff picks are stale
-    TEE.hash=hash; TEE.optimized=false; TEE.ranking=null; TEE.lead=null; TEE.manual=false;
+    TEE.hash=hash; TEE.optimized=false; TEE.ranking=null; TEE.lead=null;
   }
   return defs;
 }
@@ -1215,7 +1213,7 @@ function teeMove(i,dir){
   if(j<0||j>=TEE.seq.length) return;
   [TEE.seq[i],TEE.seq[j]]=[TEE.seq[j],TEE.seq[i]];
   TEE.optimized=false;
-  TEE.ranking=null; TEE.lead=null; TEE.manual=false; // a new Round 1 means a new leadoff question
+  TEE.ranking=null; TEE.lead=null; // a new Round 1 means a new leadoff question
   renderTee();
 }
 function teeTotals(groupsCodes, perms){
@@ -1238,7 +1236,6 @@ function teeTotals(groupsCodes, perms){
 }
 /* Core solver. opts:
    - fixSlot0: group index that must lead off Round 1
-   - fixRound1: keep Round 1 exactly as TEE.perm has it (user hand-ordered it)
    Given the previous round's slots, sorting a round by each group's last
    member off the course is optimal for that transition, so the search space
    is Round 1's order plus sort tie-breaks — covered with random restarts
@@ -1247,7 +1244,6 @@ function teeSolve(ordered, opts){
   opts = opts || {};
   const R=ordered.length;
   const groupsCodes=ordered.map(d=>d.groups.map(g=>g.codes));
-  const fixedR1 = opts.fixRound1 ? TEE.perm[ordered[0].key].slice() : null;
   /* hot path uses flat reusable buffers instead of Maps — codes are c*100+idx < 512 */
   const CODE=512, maxN=Math.max(...ordered.map(d=>d.groups.length),1);
   let bufA=new Int16Array(CODE), bufB=new Int16Array(CODE);
@@ -1301,8 +1297,7 @@ function teeSolve(ordered, opts){
       for(let i=p.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[p[i],p[j]]=[p[j],p[i]];}
       return p;
     });
-    if(fixedR1) perms[0]=fixedR1.slice();
-    else if(opts.fixSlot0!=null){ const p=perms[0], idx=p.indexOf(opts.fixSlot0); [p[0],p[idx]]=[p[idx],p[0]]; }
+    if(opts.fixSlot0!=null){ const p=perms[0], idx=p.indexOf(opts.fixSlot0); [p[0],p[idx]]=[p[idx],p[0]]; }
     sweep(perms);
     const c=cost(perms);
     if(c<bestCost){ bestCost=c; best=perms.map(p=>p.slice()); }
@@ -1311,8 +1306,7 @@ function teeSolve(ordered, opts){
     const perms=best.map(p=>p.slice());
     let cur=bestCost;
     for(let it=0;it<12000;it++){
-      let r=Math.random()*R|0;
-      if(fixedR1 && r===0){ if(R<2) break; r=1+(Math.random()*(R-1)|0); }
+      const r=Math.random()*R|0;
       const perm=perms[r];
       const lo=(r===0 && opts.fixSlot0!=null)?1:0; // leadoff stays put
       const span=perm.length-lo;
@@ -1349,7 +1343,7 @@ function teeOptimize(){
       const chosen=(TEE.lead!=null && ranking.find(e=>e.gi===TEE.lead)) || ranking[0];
       TEE.lead=chosen.gi;
       TEE.seq.forEach((k,r)=>{ TEE.perm[k]=chosen.perms[r].slice(); });
-      TEE.optimized=true; TEE.manual=false;
+      TEE.optimized=true;
     }
     btn.disabled=false;
     renderTee();
@@ -1361,21 +1355,7 @@ function teeLead(gi){
   if(!e) return;
   TEE.lead=gi;
   TEE.seq.forEach((k,r)=>{ TEE.perm[k]=e.perms[r].slice(); });
-  TEE.optimized=true; TEE.manual=false;
-  renderTee();
-}
-function teeSlotMove(k,dir){
-  const defs=teeSync();
-  if(!defs.length) return;
-  const ordered=TEE.seq.map(kk=>defs.find(d=>d.key===kk));
-  const p=TEE.perm[ordered[0].key];
-  const j=k+dir;
-  if(j<0||j>=p.length) return;
-  [p[k],p[j]]=[p[j],p[k]];
-  TEE.lead=p[0];
-  const sol=teeSolve(ordered,{fixRound1:true}); // later rounds re-fit around the hand order
-  TEE.seq.forEach((kk,r)=>{ if(r>0) TEE.perm[kk]=sol.perms[r].slice(); });
-  TEE.optimized=true; TEE.manual=true;
+  TEE.optimized=true;
   renderTee();
 }
 function renderTee(){
@@ -1402,11 +1382,11 @@ function renderTee(){
     const b0=TEE.ranking[0];
     rank.innerHTML = TEE.ranking.map((e,i)=>{
       let metric;
-      if(e.cost===b0.cost) metric=`<span class="star">&#9733;</span> smoothest day possible`;
+      if(e.cost===b0.cost) metric=`<span class="star">&#9733;</span> smoothest possible day`;
       else{
         const parts=[], dH=e.hold-b0.hold, dW=e.wait-b0.wait;
-        if(dH>0) parts.push(`rounds start ${dH} tee-off${dH>1?"s":""} later`);
-        if(dW>0) parts.push(`${dW} more tee-off${dW>1?"s":""} of standing around`);
+        if(dW>0) parts.push(`more waiting around`);
+        if(dH>0) parts.push(`rounds get going later`);
         metric = parts.join(" &middot; ") || "a hair behind the best";
       }
       return `<div class="tee-order-row rank-row${TEE.lead===e.gi?' on':''}" onclick="teeLead(${e.gi})" title="${TEE.lead===e.gi?'Leading off — the day is built around this group':'Click to lead off with this group; the whole day rebuilds around them'}">
@@ -1420,21 +1400,18 @@ function renderTee(){
   const data=teeSheetData(defs);
   let html="";
   data.rounds.forEach((rd,r)=>{
-    html+=`<div class="event-card"><div class="ehead"><h3>Round ${r+1} &mdash; ${rd.name}</h3><span>${r>0?`starts once group ${rd.hold+1} of Round ${r} is in`:"tee-off order &middot; yours to tweak"}</span></div>
-      <div class="table-scroll"><table><thead><tr><th></th><th>Group</th><th>${r>0?'Coming Off':''}</th></tr></thead><tbody>`;
+    html+=`<div class="event-card"><div class="ehead"><h3>Round ${r+1} &mdash; ${rd.name}</h3><span>${r>0?`starts once group ${rd.hold+1} of Round ${r} is in`:"tee-off order"}</span></div>
+      <div class="table-scroll"><table><thead><tr><th></th><th>Group</th>${r>0?'<th>Coming Off</th>':''}</tr></thead><tbody>`;
     rd.slots.forEach((s,k)=>{
       html+=`<tr><td class="tno">${k+1}</td><td><span class="cell2">${s.label}</span></td>${
-        r>0 ? `<td class="ttime">${s.mp<0?"&mdash;":`from groups ${s.offs.join(", ")} &nbsp;${s.wait>0?`<span class="waitflag" title="Everyone in this group is done, then ${s.wait} more group${s.wait>1?"s":""} leave${s.wait>1?"":"s"} the tee before it's their turn — that's the standing around">waits ~${s.wait} tee-off${s.wait>1?"s":""}</span>`:`<span class="roll" title="Their last player walks off 18 right as their turn comes up — no standing around">straight on</span>`}`}</td>`
-            : `<td class="ttime"><button class="udbtn mini" ${k===0?'disabled':''} onclick="teeSlotMove(${k},-1)" title="Move this group up the tee order — later rounds re-fit automatically">&#9650;</button> <button class="udbtn mini" ${k===rd.slots.length-1?'disabled':''} onclick="teeSlotMove(${k},1)" title="Move this group down the tee order — later rounds re-fit automatically">&#9660;</button></td>`
+        r>0 ? `<td class="ttime">${s.mp<0?"&mdash;":`from groups ${s.offs.join(", ")}${s.wait>0?` &nbsp;<span class="waitflag" title="Everyone in this group is done playing, then ${s.wait} more group${s.wait>1?"s":""} tee${s.wait>1?"":"s"} off before it's their turn">waits while ${s.wait} group${s.wait>1?"s":""} tee${s.wait>1?"":"s"} off</span>`:""}`}</td>` : ""
       }</tr>`;
     });
     html+=`</tbody></table></div></div>`;
   });
   sheet.innerHTML=html;
   st.textContent = TEE.optimized
-    ? (TEE.manual
-        ? `Round 1 is hand-ordered — later rounds arranged as smoothly as possible around it (${data.totalWait} tee-off${data.totalWait===1?"":"s"} of standing around across the field).`
-        : `Optimized — the smoothest day this setup allows: ${data.totalWait} tee-off${data.totalWait===1?"":"s"} of standing around across the whole field.`)
+    ? `Optimized — this is the smoothest the day can flow with this leadoff group.`
     : `Using the order as listed — hit Optimize to rank the leadoff groups and smooth out the day.`;
 }
 
@@ -1457,7 +1434,7 @@ function saveAll(){
     rankWeight: +document.getElementById("rankBalance").value,
     twoMan: { name: TWOMAN.name, groups: TWOMAN.groups }
   };
-  if(TEE) out.tee = { seq: TEE.seq, perm: TEE.perm, optimized: TEE.optimized, lead: TEE.lead, manual: !!TEE.manual };
+  if(TEE) out.tee = { seq: TEE.seq, perm: TEE.perm, optimized: TEE.optimized, lead: TEE.lead };
   if(STATE){
     out.roster = {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")};
     out.events = STATE.eventNames;
@@ -1488,7 +1465,7 @@ function applySetup(s){
   document.getElementById("tmName").value = TWOMAN.name;
   if(s.tee && Array.isArray(s.tee.seq)){
     TEE = { seq: s.tee.seq.filter(k=>typeof k==="string"), perm:{}, optimized: !!s.tee.optimized, hash: null,
-            ranking: null, lead: Number.isInteger(s.tee.lead) ? s.tee.lead : null, manual: !!s.tee.manual };
+            ranking: null, lead: Number.isInteger(s.tee.lead) ? s.tee.lead : null };
     if(s.tee.perm && typeof s.tee.perm==="object")
       for(const k in s.tee.perm) if(Array.isArray(s.tee.perm[k])) TEE.perm[k]=s.tee.perm[k].map(Number);
   } else {
@@ -1558,7 +1535,7 @@ function resultsText(){
         out += "Round "+(r+1)+" — "+rd.name
              + (r>0 ? " (starts once group "+(rd.hold+1)+" of Round "+r+" is in)" : "")+"\n";
         rd.slots.forEach((s,k)=>{
-          out += "  "+(k+1)+".  "+plain(s.label)+(r>0&&s.wait>0?"  [waits ~"+s.wait+" tee-off"+(s.wait>1?"s":"")+"]":"")+"\n";
+          out += "  "+(k+1)+".  "+plain(s.label)+(r>0&&s.wait>0?"  [waits while "+s.wait+" group"+(s.wait>1?"s":"")+" tee"+(s.wait>1?"":"s")+" off]":"")+"\n";
         });
         out += "\n";
       });
@@ -1595,7 +1572,7 @@ function downloadCSV(){
     const data = teeSheetData();
     if(data){
       const plain = s => s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
-      csv += "\nRound,Event,Tee Order,Group,Waits (tee-offs)\n";
+      csv += "\nRound,Event,Tee Order,Group,Groups They Wait Through\n";
       data.rounds.forEach((rd,r)=>rd.slots.forEach((s,k)=>{
         csv += [r+1, esc(rd.name), k+1, esc(plain(s.label)), r>0?s.wait:0].join(",")+"\n";
       }));
