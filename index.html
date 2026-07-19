@@ -1695,9 +1695,16 @@ async function xlsxSaveData(u8){ // the parsed save object, or null if none is i
       }
     }
     text=text.trim();
-    if(text.startsWith('{"type":"cross-creek-save"')){
-      try{ return JSON.parse(text); }catch(e){}
-    }
+    try{
+      if(text.startsWith("CC1:")){
+        const bin=atob(text.slice(4));
+        const bytes=new Uint8Array(bin.length);
+        for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+        const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        return JSON.parse(new TextDecoder().decode(await new Response(stream).arrayBuffer()));
+      }
+      if(text.startsWith('{"type":"cross-creek-save"')) return JSON.parse(text); // older workbooks
+    }catch(e){}
   }
   return null;
 }
@@ -1926,15 +1933,22 @@ function shWinnings(){
   const widths=[22,3]; for(let i=2;i<c;i++) widths.push(14);
   return {name:"Winnings", rows, widths, freeze:true};
 }
-function shSave(){ // the whole save file rides along in a veryHidden sheet, chunked to fit cells
-  const json=JSON.stringify(saveData());
-  const rows=[];
-  for(let i=0;i<json.length;i+=30000) rows.push([{v:json.slice(i,i+30000)}]);
-  return {name:"_save", rows, hidden:true};
+async function encodeSave(){ // deflate + base64 — opaque at a glance, and smaller than the raw JSON
+  const raw=new TextEncoder().encode(JSON.stringify(saveData()));
+  const stream=new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  const bytes=new Uint8Array(await new Response(stream).arrayBuffer());
+  let bin="";
+  for(let i=0;i<bytes.length;i+=0x8000) bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));
+  return "CC1:"+btoa(bin);
 }
-function xlsxBytes(){
+function shSave(encoded){ // the whole save file rides along in a veryHidden sheet, chunked to fit cells
+  const rows=[];
+  for(let i=0;i<encoded.length;i+=30000) rows.push([{v:encoded.slice(i,i+30000)}]);
+  return {name:"_meta", rows, hidden:true};
+}
+async function xlsxBytes(){
   const sheets=[shRoomies(),shRankings(),shPairings(),shWinnings()].filter(Boolean);
-  sheets.push(shSave());
+  sheets.push(shSave(await encodeSave()));
   const RELS_NS='http://schemas.openxmlformats.org/package/2006/relationships';
   const files=[
     {name:"[Content_Types].xml", text: XMLDECL
@@ -1959,10 +1973,10 @@ function xlsxBytes(){
   ].concat(sheets.map((sh,i)=>({name:`xl/worksheets/sheet${i+1}.xml`, text:sheetXML(sh)})));
   return zipBytes(files);
 }
-function downloadExcel(){
+async function downloadExcel(){
   if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([xlsxBytes()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+  a.href=URL.createObjectURL(new Blob([await xlsxBytes()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
   a.download="cross-creek-pairings.xlsx";
   document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
@@ -2023,13 +2037,13 @@ function zipBytes(files){ // files: [{name, text}] or [{name, bytes}]
   return out;
 }
 function makeZip(files){ return new Blob([zipBytes(files)],{type:"application/zip"}); }
-function saveEverything(){
+async function saveEverything(){
   if(!STATE){ saveAll(); statusEl.textContent="Saved the setup file — generate pairings to get the full bundle."; return; }
   const dir="cross-creek-pairings/";
   const blob=makeZip([
     {name:dir+"cross-creek.json", text:JSON.stringify(saveData(),null,2)},
     {name:dir+"cross-creek-pairings.txt", text:resultsText()},
-    {name:dir+"cross-creek-pairings.xlsx", bytes:xlsxBytes()}
+    {name:dir+"cross-creek-pairings.xlsx", bytes:await xlsxBytes()}
   ]);
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob); a.download="cross-creek-pairings.zip";
