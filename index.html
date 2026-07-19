@@ -367,6 +367,34 @@
   td.teamsplit{border-left:2px solid var(--line)}
   .muted{color:var(--ink-soft);font-style:italic}
 
+  /* ===== tee sheet ===== */
+  .tee-order-row{
+    display:flex;align-items:center;gap:10px;
+    background:#fff;border:1px solid var(--line);border-radius:3px;
+    padding:8px 12px;margin-bottom:6px;
+  }
+  .tee-order-row .rno{font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--tee-red);flex:0 0 70px}
+  .tee-order-row .rname{flex:1 1 auto;font-size:15px;min-width:0;overflow-wrap:anywhere}
+  .udbtn{
+    width:30px;height:30px;border:1px solid var(--line);border-radius:50%;
+    background:#fff;color:var(--fair);cursor:pointer;font-size:12px;
+  }
+  .udbtn:hover:not(:disabled){background:var(--fair);color:#fff;border-color:var(--fair)}
+  .udbtn:disabled{opacity:.25;cursor:default}
+  .tee-times{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .tee-times label{
+    font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-soft);display:flex;flex-direction:column;gap:5px;
+  }
+  .tee-times input{
+    font-family:Georgia,serif;font-size:15px;padding:8px 10px;
+    background:#fff;border:1px solid var(--line);border-radius:3px;color:var(--ink);width:130px;
+  }
+  td.ttime{font-family:Verdana,sans-serif;font-size:11px;color:var(--ink-soft);white-space:nowrap;padding:9px 12px}
+  .roll{color:var(--fair);font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.05em}
+  .waitflag{color:var(--tee-red);font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.05em}
+  #teeSheet:empty{display:none}
+
   @media print{
     body{background:#fff;padding:0}
     .panel:not(#reportPanel), header .est, .footer-note, .gen-bar, .export-bar, .edit-note, .tabs{display:none !important}
@@ -389,6 +417,7 @@
 <nav class="tabs">
   <button class="tab on" data-view="main" onclick="showView('main')" title="Roster, preferences, and the three four-man events">Four-Man Events</button>
   <button class="tab" data-view="twoman" onclick="showView('twoman')" title="Hand-pick the two-man scramble teams and check them for collisions">Two-Man Scramble</button>
+  <button class="tab" data-view="tee" onclick="showView('tee')" title="Set the day's round order, optimize the tee-off order so groups roll from 18 straight to the next first tee, and save or export everything">Tee Sheet</button>
 </nav>
 
 <div id="view-main">
@@ -462,7 +491,7 @@
         <li><b>Balance by rank slider (0&ndash;10)</b> &mdash; how hard the solver works to even out team strength using each player's in-tier rank; 0 ignores rank entirely, 10 makes it a top priority (still never forces a repeat)</li>
         <li><b>&#128275; / &#128274; lock icon</b> &mdash; click a team's padlock to freeze that exact foursome; the next Generate leaves every locked team alone and only reshuffles the rest. Handy once a batch of teams looks right and you just want the solver to keep working on the ones that don't yet</li>
         <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, the two-man picks, and the teams if you've generated them. Load it and you're back exactly where you left off</li>
-        <li><b>Copy / CSV / Text / Print</b> &mdash; exports the sheet exactly as shown, including your hand-swaps</li>
+        <li><b>Copy / CSV / Text / Print</b> &mdash; on the Tee Sheet tab; exports every event exactly as shown, hand-swaps and tee times included</li>
       </ul>
     </div>
   </div>
@@ -492,6 +521,40 @@
 </section>
 
 </div><!-- /view-twoman -->
+
+<div id="view-tee" hidden>
+
+<section class="panel">
+  <h2><span class="hole">1</span> Round Order &amp; Timing</h2>
+  <div id="teeOrderList"></div>
+  <div class="tee-times">
+    <label>First tee <input id="teeFirst" value="8:00 AM" oninput="renderTee()" title="When the first group of the day tees off"></label>
+    <label>Tee gap (min) <input id="teeGap" type="number" min="1" max="30" value="10" oninput="renderTee()" title="Minutes between consecutive groups off the first tee"></label>
+    <label>Round length (min) <input id="teeDur" type="number" min="60" max="420" value="270" oninput="renderTee()" title="How long 18 holes takes a group, tee to green — 270 is 4½ hours"></label>
+  </div>
+  <div class="gen-bar" style="margin-top:14px">
+    <button class="go" onclick="teeOptimize()" title="Assign every group a tee slot in every round so that when players walk off 18, their next group is already due up — the fewer people the first tee waits on, the better">Optimize tee order</button>
+    <span class="status" id="teeStatus"></span>
+  </div>
+  <p class="hint">Arrange the day with the arrows, then optimize. The optimizer picks each round's tee-off order so that everyone in a group has already finished the previous round by the time their slot comes up &mdash; groups roll from the 18th green to the next first tee with as little standing around as possible. The tee sheet below updates live; a red note means that group is waiting on someone still out on the course.</p>
+</section>
+
+<div id="teeSheet"></div>
+
+<section class="panel">
+  <h2><span class="hole">2</span> Save &amp; Export</h2>
+  <div class="gen-bar">
+    <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, teams, two-man picks, and this tee sheet">Save</button>
+    <button class="toolbtn" onclick="loadFile.click()" title="Load a saved file — restores everything, tee sheet included if the file has one">Load</button>
+    <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee sheet as plain text — paste into a group chat or email">Copy as text</button>
+    <button class="toolbtn" onclick="downloadCSV()" title="Download a spreadsheet-ready file (opens in Excel) — pairings plus the tee sheet">Download CSV</button>
+    <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee sheet as a plain .txt file">Download text</button>
+    <button class="toolbtn" onclick="window.print()" title="Print-friendly tee sheet — just the header and the rounds below">Print / PDF</button>
+  </div>
+  <p class="hint">One save file holds the whole outing. Text and CSV exports include every event's teams plus the tee sheet above.</p>
+</section>
+
+</div><!-- /view-tee -->
 </div>
 
 <script>
@@ -877,13 +940,7 @@ function renderState(scroll){
     <div class="rbox"><h4>Repeat check</h4>${repItems.length===0?'<p class="ok">Clean card — no two players share a foursome twice.</p>':'<ul><li>'+repItems.join('</li><li>')+'</li></ul>'}</div>
     <div class="rbox"><h4>Preference results</h4><ul>${prefHtml}</ul></div>
   </div>
-  <div class="export-bar">
-    <button class="toolbtn" onclick="saveAll()" title="Same Save as up top — one file with everything, including these teams and your hand-swaps">Save</button>
-    <button class="toolbtn" onclick="copyResults()" title="Copy the teams as plain text — paste into a group chat or email">Copy as text</button>
-    <button class="toolbtn" onclick="downloadCSV()" title="Download a spreadsheet-ready file (opens in Excel)">Download CSV</button>
-    <button class="toolbtn" onclick="downloadText()" title="Download the teams as a plain .txt file">Download text</button>
-    <button class="toolbtn" onclick="window.print()" title="Print-friendly sheet — just the header, teams, and card">Print / PDF</button>
-  </div></div>`;
+  <p class="hint">Saving and exporting live on the Tee Sheet tab &mdash; set the day's order there and everything exports together.</p></div>`;
 
   document.getElementById("results").innerHTML=html;
   if(scroll && !hasScrolled){ document.getElementById("results").scrollIntoView({behavior:"smooth"}); hasScrolled=true; }
@@ -967,8 +1024,10 @@ function fourManSeen(){
 function showView(v){
   document.getElementById("view-main").hidden = (v!=="main");
   document.getElementById("view-twoman").hidden = (v!=="twoman");
+  document.getElementById("view-tee").hidden = (v!=="tee");
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on", b.dataset.view===v));
   if(v==="twoman") renderTwoMan();
+  if(v==="tee") renderTee();
 }
 function renderTwoMan(){
   const box = document.getElementById("tmGroups");
@@ -1073,6 +1132,214 @@ function renderTwoMan(){
   </div>`;
 }
 
+/* ================= tee sheet =================
+   TEE = { seq: round keys in play order ("e0".."e2" four-man events, "tm"),
+           perm: {key: [groupIdx per tee slot]}, optimized, hash }
+   The model: groups tee off `gap` minutes apart and all take `dur` minutes for
+   18. A group can't tee off in the next round until every member has walked
+   off the previous one, so each round's start gets held by the worst laggard.
+   Optimizing = choosing each round's slot order to minimize that hold and the
+   time groups spend standing around waiting. */
+let TEE = null;
+function teeRoundDefs(){
+  const defs=[];
+  if(!STATE) return defs;
+  const {cols,eventNames,teams} = STATE;
+  for(let r=0;r<teams.length;r++){
+    defs.push({key:"e"+r, name:eventNames[r], groups: teams[r].map(tm=>({
+      codes: tm.map((idx,c)=>c*100+idx),
+      label: tm.map((idx,c)=>cols[c][idx]).join(", ")
+    }))});
+  }
+  if(twoManHasPicks()){
+    const findCode = nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return c*100+i;} return null; };
+    defs.push({key:"tm", name:tmEventName(), groups: TWOMAN.groups.map(grp=>{
+      const codes=[]; grp.forEach(team=>team.forEach(nm=>{ const c=nm?findCode(nm):null; if(c!==null) codes.push(c); }));
+      const t1=grp[0].filter(Boolean).join(" & ")||"&mdash;", t2=grp[1].filter(Boolean).join(" & ")||"&mdash;";
+      return {codes, label: t1+" &nbsp;|&nbsp; "+t2};
+    })});
+  }
+  return defs;
+}
+function teeSync(){
+  const defs = teeRoundDefs();
+  const keys = defs.map(d=>d.key);
+  if(!TEE) TEE = {seq:[], perm:{}, optimized:false, hash:""};
+  TEE.seq = TEE.seq.filter(k=>keys.includes(k)).concat(keys.filter(k=>!TEE.seq.includes(k)));
+  for(const d of defs){
+    if(!Array.isArray(TEE.perm[d.key]) || TEE.perm[d.key].length!==d.groups.length
+       || TEE.perm[d.key].slice().sort((a,b)=>a-b).some((v,i)=>v!==i))
+      TEE.perm[d.key] = d.groups.map((_,i)=>i);
+  }
+  for(const k in TEE.perm) if(!keys.includes(k)) delete TEE.perm[k];
+  const hash = JSON.stringify(defs.map(d=>[d.key, d.groups.map(g=>g.codes)]));
+  if(TEE.hash===null) TEE.hash = hash;              // fresh from a load — adopt as-is
+  else if(TEE.hash!==hash){ TEE.hash=hash; TEE.optimized=false; } // groups changed under us
+  return defs;
+}
+function teeParseFirst(){
+  const m=(document.getElementById("teeFirst").value||"").match(/(\d{1,2})[:.](\d{2})\s*(am|pm)?/i);
+  if(!m) return 8*60;
+  let h=+m[1]%24; const mm=+m[2]%60;
+  const ap=(m[3]||"").toLowerCase();
+  if(ap==="pm"&&h<12)h+=12; if(ap==="am"&&h===12)h=0;
+  return h*60+mm;
+}
+function fmtT(min){
+  min=((min%1440)+1440)%1440;
+  let h=Math.floor(min/60); const m=min%60;
+  const ap=h>=12?"PM":"AM"; h=h%12||12;
+  return h+":"+String(m).padStart(2,"0")+" "+ap;
+}
+function teeSheetData(defs){
+  defs = defs || teeSync();
+  if(!defs.length) return null;
+  const ordered = TEE.seq.map(k=>defs.find(d=>d.key===k));
+  const gap=Math.max(1,+document.getElementById("teeGap").value||10);
+  const dur=Math.max(30,+document.getElementById("teeDur").value||270);
+  let start=teeParseFirst();
+  const rounds=[]; let prevPos=null, totalWait=0, totalHold=0;
+  for(let r=0;r<ordered.length;r++){
+    const d=ordered[r], perm=TEE.perm[d.key];
+    const slots=[]; let maxLate=0;
+    for(let k=0;k<perm.length;k++){
+      const g=d.groups[perm[k]];
+      let mp=-1; const offs=new Set();
+      if(prevPos) for(const c of g.codes){ const p=prevPos.get(c); if(p!==undefined){ offs.add(p+1); if(p>mp)mp=p; } }
+      if(r>0 && mp-k>maxLate) maxLate=mp-k;
+      slots.push({gi:perm[k], mp, offs:[...offs].sort((a,b)=>a-b)});
+    }
+    const hold = r>0 ? maxLate*gap : 0;
+    if(r>0){ start += dur + hold; totalHold += hold; }
+    for(let k=0;k<slots.length;k++){
+      const s=slots[k];
+      s.time = start + k*gap;
+      s.wait = (r===0||s.mp<0) ? 0 : (maxLate + k - s.mp)*gap;
+      if(r>0 && s.mp>=0) totalWait += s.wait;
+      s.label = d.groups[s.gi].label;
+    }
+    rounds.push({name:d.name, key:d.key, start, hold, slots});
+    const pp=new Map();
+    for(let k=0;k<perm.length;k++) for(const c of d.groups[perm[k]].codes) pp.set(c,k);
+    prevPos=pp;
+  }
+  return {rounds, totalWait, totalHold, gap, dur};
+}
+function teeMove(i,dir){
+  const j=i+dir;
+  if(j<0||j>=TEE.seq.length) return;
+  [TEE.seq[i],TEE.seq[j]]=[TEE.seq[j],TEE.seq[i]];
+  TEE.optimized=false;
+  renderTee();
+}
+function teeOptimize(){
+  if(!STATE){ document.getElementById("teeStatus").textContent="Generate the four-man pairings first."; return; }
+  const defs=teeSync();
+  const ordered=TEE.seq.map(k=>defs.find(d=>d.key===k));
+  const R=ordered.length;
+  const groupsCodes=ordered.map(d=>d.groups.map(g=>g.codes));
+  function cost(perms){
+    let total=0, prevPos=null;
+    for(let r=0;r<R;r++){
+      const groups=groupsCodes[r], perm=perms[r];
+      let maxLate=0; const mps=[];
+      for(let k=0;k<perm.length;k++){
+        let mp=-1;
+        if(prevPos) for(const c of groups[perm[k]]){ const p=prevPos.get(c); if(p!==undefined&&p>mp) mp=p; }
+        mps.push(mp);
+        if(r>0 && mp-k>maxLate) maxLate=mp-k;
+      }
+      /* the whole field waits out a held first tee, so it dominates; individual
+         groups cooling their heels is the tiebreaker */
+      if(r>0){ total+=maxLate*1000; for(let k=0;k<perm.length;k++) if(mps[k]>=0) total+=maxLate+k-mps[k]; }
+      const pp=new Map();
+      for(let k=0;k<perm.length;k++) for(const c of groups[perm[k]]) pp.set(c,k);
+      prevPos=pp;
+    }
+    return total;
+  }
+  /* Given the previous round's slots, sorting a round's groups by their last
+     member off the course is optimal for that transition (both the tee hold
+     and total wait). So: sweep forward greedily, and search over the free
+     choices — round 1's order and the tie-breaks — with random restarts. */
+  function sweep(perms){
+    let prevPos=null;
+    for(let r=0;r<R;r++){
+      if(r>0){
+        const mp = groupsCodes[r].map(codes=>{
+          let m=-1; for(const c of codes){ const p=prevPos.get(c); if(p!==undefined&&p>m) m=p; }
+          return m;
+        });
+        perms[r].sort((a,b)=>mp[a]-mp[b]); // stable: current order breaks ties
+      }
+      const pp=new Map();
+      for(let k=0;k<perms[r].length;k++) for(const c of groupsCodes[r][perms[r][k]]) pp.set(c,k);
+      prevPos=pp;
+    }
+  }
+  let best=null, bestCost=Infinity;
+  for(let rs=0;rs<4000;rs++){
+    const perms=groupsCodes.map(gs=>{
+      const p=gs.map((_,i)=>i);
+      for(let i=p.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[p[i],p[j]]=[p[j],p[i]];}
+      return p;
+    });
+    sweep(perms);
+    const c=cost(perms);
+    if(c<bestCost){ bestCost=c; best=perms.map(p=>p.slice()); }
+  }
+  /* short polish: nudge slots the greedy sweep can't reach */
+  const perms=best.map(p=>p.slice());
+  let cur=bestCost;
+  for(let it=0;it<10000;it++){
+    const r=Math.random()*R|0, perm=perms[r];
+    if(perm.length<2) continue;
+    const i=Math.random()*perm.length|0; let j=Math.random()*perm.length|0; if(i===j) j=(j+1)%perm.length;
+    [perm[i],perm[j]]=[perm[j],perm[i]];
+    const nc=cost(perms);
+    if(nc<=cur) cur=nc;
+    else [perm[i],perm[j]]=[perm[j],perm[i]];
+    if(cur<bestCost){ bestCost=cur; best=perms.map(p=>p.slice()); }
+  }
+  TEE.seq.forEach((k,r)=>{ TEE.perm[k]=best[r]; });
+  TEE.optimized=true;
+  renderTee();
+}
+function renderTee(){
+  const orderBox=document.getElementById("teeOrderList");
+  if(!orderBox) return;
+  const sheet=document.getElementById("teeSheet"), st=document.getElementById("teeStatus");
+  if(!STATE){
+    orderBox.innerHTML=`<p class="muted">Generate the four-man pairings first (Four-Man Events tab) &mdash; the tee sheet builds itself from those groups.</p>`;
+    sheet.innerHTML=""; st.textContent="Nothing to schedule yet.";
+    return;
+  }
+  const defs=teeSync();
+  const ordered=TEE.seq.map(k=>defs.find(d=>d.key===k));
+  orderBox.innerHTML = ordered.map((d,i)=>`<div class="tee-order-row">
+    <span class="rno">Round ${i+1}</span>
+    <span class="rname">${d.name}${d.key==="tm"?' <span class="rtag">two-man</span>':''}</span>
+    <button class="udbtn" ${i===0?'disabled':''} onclick="teeMove(${i},-1)" title="Play this round earlier in the day">&#9650;</button>
+    <button class="udbtn" ${i===ordered.length-1?'disabled':''} onclick="teeMove(${i},1)" title="Play this round later in the day">&#9660;</button>
+  </div>`).join("");
+  const data=teeSheetData(defs);
+  let html="";
+  data.rounds.forEach((rd,r)=>{
+    html+=`<div class="event-card"><div class="ehead"><h3>Round ${r+1} &mdash; ${rd.name}</h3><span>first tee ${fmtT(rd.start)}${r>0?(rd.hold>0?` &middot; held ${rd.hold} min for the turn`:" &middot; rolls straight over"):""}</span></div>
+      <div class="table-scroll"><table><thead><tr><th></th><th>Tee Time</th><th>Group</th>${r>0?'<th>Coming Off</th>':''}</tr></thead><tbody>`;
+    rd.slots.forEach((s,k)=>{
+      html+=`<tr><td class="tno">${k+1}</td><td class="ttime">${fmtT(s.time)}</td><td><span class="cell2">${s.label}</span></td>${
+        r>0 ? `<td class="ttime">${s.mp<0?"&mdash;":`slots ${s.offs.join(", ")} &nbsp;${s.wait>0?`<span class="waitflag" title="This group is ready ${s.wait} minutes before its slot — they'll be waiting on the box">~${s.wait} min wait</span>`:`<span class="roll" title="Everyone in this group is off the course right when their slot comes up">rolls on</span>`}`}</td>` : ""
+      }</tr>`;
+    });
+    html+=`</tbody></table></div></div>`;
+  });
+  sheet.innerHTML=html;
+  st.textContent = TEE.optimized
+    ? `Optimized — first tees held ${data.totalHold} min total, ${data.totalWait} group-minutes of waiting across the day.`
+    : `Using the order as listed — hit Optimize to tighten the turnarounds.`;
+}
+
 /* ================= save / load ================= */
 function dl(filename, text, type){
   const blob = new Blob([text], {type});
@@ -1092,6 +1359,10 @@ function saveAll(){
     rankWeight: +document.getElementById("rankBalance").value,
     twoMan: { name: TWOMAN.name, groups: TWOMAN.groups }
   };
+  if(TEE) out.tee = { seq: TEE.seq, perm: TEE.perm, optimized: TEE.optimized,
+    firstTee: document.getElementById("teeFirst").value,
+    gap: document.getElementById("teeGap").value,
+    dur: document.getElementById("teeDur").value };
   if(STATE){
     out.roster = {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")};
     out.events = STATE.eventNames;
@@ -1120,6 +1391,16 @@ function applySetup(s){
     TWOMAN = { name:"Two-Man Scramble", groups: [] };
   }
   document.getElementById("tmName").value = TWOMAN.name;
+  if(s.tee && Array.isArray(s.tee.seq)){
+    TEE = { seq: s.tee.seq.filter(k=>typeof k==="string"), perm:{}, optimized: !!s.tee.optimized, hash: null };
+    if(s.tee.perm && typeof s.tee.perm==="object")
+      for(const k in s.tee.perm) if(Array.isArray(s.tee.perm[k])) TEE.perm[k]=s.tee.perm[k].map(Number);
+    if(s.tee.firstTee) document.getElementById("teeFirst").value = s.tee.firstTee;
+    if(s.tee.gap) document.getElementById("teeGap").value = s.tee.gap;
+    if(s.tee.dur) document.getElementById("teeDur").value = s.tee.dur;
+  } else {
+    TEE = null;
+  }
   checkColumns();
   renderTwoMan();
 }
@@ -1143,9 +1424,12 @@ function loadAll(inp){
         SEL=null; hasScrolled=false;
         renderState(true);
         renderTwoMan(); // now that teams are back, the collision check can run
+        if(TEE) teeSync(); // adopt the loaded groups as the tee sheet's baseline
+        renderTee();
         status.textContent = "Loaded — teams restored, click players to rearrange.";
       } else {
         STATE=null; document.getElementById("results").innerHTML="";
+        renderTee();
         status.textContent = "Loaded — roster and preferences restored. Hit Generate for teams.";
       }
     }catch(e){ status.textContent = "That file didn't look like a Cross Creek save."; }
@@ -1171,6 +1455,21 @@ function resultsText(){
       out += "  Group "+(g+1)+": T"+(g*2+1)+": "+tag(grp[0][0])+" & "+tag(grp[0][1])
            + "  |  T"+(g*2+2)+": "+tag(grp[1][0])+" & "+tag(grp[1][1])+"\n";
     });
+  }
+  if(TEE){
+    const data = teeSheetData();
+    if(data){
+      const plain = s => s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
+      out += "\nTEE SHEET\n---------\n";
+      data.rounds.forEach((rd,r)=>{
+        out += "Round "+(r+1)+" — "+rd.name+" (first tee "+fmtT(rd.start)
+             + (r>0 ? (rd.hold>0 ? ", held "+rd.hold+" min for the turn" : ", rolls straight over") : "")+")\n";
+        rd.slots.forEach((s,k)=>{
+          out += "  "+fmtT(s.time)+"  "+plain(s.label)+(r>0&&s.wait>0?"  [~"+s.wait+" min wait]":"")+"\n";
+        });
+        out += "\n";
+      });
+    }
   }
   return out;
 }
@@ -1198,6 +1497,16 @@ function downloadCSV(){
       if(!(team[0]||team[1])) return;
       csv += [esc(tmEventName()), esc("G"+(g+1)+"-T"+(g*2+tt+1)), esc(tag(team[0])), esc(tag(team[1])), "", ""].join(",")+"\n";
     }));
+  }
+  if(TEE){
+    const data = teeSheetData();
+    if(data){
+      const plain = s => s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
+      csv += "\nRound,Event,Slot,Tee Time,Group,Wait (min)\n";
+      data.rounds.forEach((rd,r)=>rd.slots.forEach((s,k)=>{
+        csv += [r+1, esc(rd.name), k+1, esc(fmtT(s.time)), esc(plain(s.label)), r>0?s.wait:0].join(",")+"\n";
+      }));
+    }
   }
   dl("cross-creek-pairings.csv", csv, "text/csv");
 }
