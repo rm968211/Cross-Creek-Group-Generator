@@ -373,6 +373,28 @@
   }
   .tm-slot.rep .nm{text-decoration:underline dotted var(--tee-red) 2px;text-underline-offset:3px}
   .tm-slot.dup{border-color:var(--tee-red);outline:1px solid var(--tee-red)}
+  /* ===== gambling ===== */
+  .gam-card{
+    background:#fff;border:1px solid var(--line);border-radius:4px;
+    padding:12px 14px;margin-bottom:10px;
+    display:grid;grid-template-columns:170px 130px 1fr;gap:10px 16px;align-items:start;
+  }
+  @media(max-width:760px){.gam-card{grid-template-columns:1fr}}
+  .gam-name{
+    font-family:Verdana,sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--tee-red);padding-top:24px;overflow-wrap:anywhere;
+  }
+  .gam-card label{
+    display:flex;flex-direction:column;gap:6px;
+    font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .gam-card input,.gam-card textarea{
+    font-family:Georgia,serif;font-size:14px;color:var(--ink);
+    border:1px solid var(--line);border-radius:3px;padding:8px 10px;background:#fff;
+  }
+  .gam-card textarea{min-height:88px;resize:vertical}
+
   /* ===== roommates ===== */
   .rm-rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
   @media(max-width:760px){.rm-rooms{grid-template-columns:1fr}}
@@ -438,6 +460,7 @@
   <button class="tab on" data-view="start" onclick="showView('start')" title="Load a saved pairing or start a new one">Get Started</button>
   <button class="tab" data-view="main" onclick="showView('main')" title="Roster, preferences, and the three four-man events">Four-Man Events</button>
   <button class="tab" data-view="twoman" onclick="showView('twoman')" title="Hand-pick the two-man scramble teams and check them for collisions">Two-Man Scramble</button>
+  <button class="tab" data-view="gambling" onclick="showView('gambling')" title="Buy-ins and game details for each event — optional, lands on the Pairings sheet next to each game">Gambling</button>
   <button class="tab" data-view="roomies" onclick="showView('roomies')" title="Pair up roommates — completely optional, fills the Roomies sheet in the Excel workbook">Roommates</button>
   <button class="tab" data-view="tee" onclick="showView('tee')" title="Set the day's round order and optimize the tee-off order">Tee Order</button>
   <button class="tab" data-view="save" onclick="showView('save')" title="Save the pairing and export it every way it comes">Save &amp; Export</button>
@@ -561,6 +584,16 @@
 </section>
 
 </div><!-- /view-twoman -->
+
+<div id="view-gambling" hidden>
+
+<section class="panel">
+  <h2><span class="hole">&#127922;</span> Gambling</h2>
+  <div id="gamblingList"></div>
+  <p class="hint">All optional. Set what each player owes for a game and any details you want on the sheet &mdash; payouts, instructions, how the game works. It lands on the Pairings sheet beside each event, one detail line per row, just like every year.</p>
+</section>
+
+</div><!-- /view-gambling -->
 
 <div id="view-roomies" hidden>
 
@@ -1081,6 +1114,36 @@ function fourManSeen(){
   }
   return set;
 }
+/* ================= gambling =================
+   GAMBLING[key] = {amt, det} for "tm" and "e0".."e2" — what each player
+   owes for a game plus free-text details (payouts, instructions). All
+   optional; lands on the Pairings sheet beside each event. */
+let GAMBLING = {};
+function gamGames(){
+  const evs=[...document.querySelectorAll("#events input")].map(i=>i.value.trim()||"Event");
+  return [{key:"tm", name:tmEventName()}].concat(evs.map((nm,r)=>({key:"e"+r, name:nm})));
+}
+function gamSet(key, field, val){
+  if(!GAMBLING[key]) GAMBLING[key]={amt:"",det:""};
+  GAMBLING[key][field]=val;
+}
+function renderGambling(){
+  const box=document.getElementById("gamblingList");
+  if(!box) return;
+  const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+  box.innerHTML = gamGames().map(g=>{
+    const d=GAMBLING[g.key]||{amt:"",det:""};
+    return `<div class="gam-card">
+      <div class="gam-name">${esc(g.name)}</div>
+      <label>$ due per player
+        <input value="${esc(d.amt)}" oninput="gamSet('${g.key}','amt',this.value)" placeholder="20" title="What each player owes for this game — sits beside the event name on the sheet">
+      </label>
+      <label>Details
+        <textarea oninput="gamSet('${g.key}','det',this.value)" placeholder="Payouts, instructions, game details &mdash; one line per row on the sheet" title="Anything you want on the sheet next to this game — each line gets its own row">${esc(d.det)}</textarea>
+      </label>
+    </div>`;
+  }).join("");
+}
 /* ================= roommates =================
    ROOMIES.rooms[i] = [name, name] — two to a room, completely optional;
    it only exists to fill the Roomies sheet in the Excel workbook.
@@ -1156,11 +1219,12 @@ function renderRoomies(){
   box.innerHTML = html;
 }
 function showView(v){
-  ["start","main","twoman","roomies","tee","save"].forEach(k=>{
+  ["start","main","twoman","gambling","roomies","tee","save"].forEach(k=>{
     document.getElementById("view-"+k).hidden = (v!==k);
   });
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on", b.dataset.view===v));
   if(v==="twoman") renderTwoMan();
+  if(v==="gambling") renderGambling();
   if(v==="roomies") renderRoomies();
   if(v==="tee") renderTee();
 }
@@ -1175,8 +1239,8 @@ function startNew(){
   TWOMAN={name:"Two-Man Scramble", groups:[]};
   document.getElementById("tmName").value=TWOMAN.name;
   TEE=null; TMSEL=null;
-  ROOMIES={rooms:[]}; RMSEL=null;
-  checkColumns(); renderTwoMan(); renderRoomies(); renderTee();
+  ROOMIES={rooms:[]}; RMSEL=null; GAMBLING={};
+  checkColumns(); renderTwoMan(); renderGambling(); renderRoomies(); renderTee();
   statusEl.textContent="Fresh pairing — set the roster and hit Generate.";
   showView("main");
 }
@@ -1583,7 +1647,8 @@ function saveData(){
       w:+r.querySelector("input[type=range]").value })),
     rankWeight: +document.getElementById("rankBalance").value,
     twoMan: { name: TWOMAN.name, groups: TWOMAN.groups },
-    roomies: { rooms: ROOMIES.rooms }
+    roomies: { rooms: ROOMIES.rooms },
+    gambling: GAMBLING
   };
   if(TEE) out.tee = { seq: TEE.seq, perm: TEE.perm, optimized: TEE.optimized, lead: TEE.lead, ranking: TEE.ranking };
   if(STATE){
@@ -1623,6 +1688,13 @@ function applySetup(s){
     ROOMIES = { rooms: [] };
   }
   RMSEL=null;
+  GAMBLING={};
+  if(s.gambling && typeof s.gambling==="object"){
+    for(const k in s.gambling){
+      const g=s.gambling[k]||{};
+      GAMBLING[k]={amt:String(g.amt||""), det:String(g.det||"")};
+    }
+  }
   if(s.tee && Array.isArray(s.tee.seq)){
     TEE = { seq: s.tee.seq.filter(k=>typeof k==="string"), perm:{}, optimized: !!s.tee.optimized, hash: null,
             ranking: null, lead: Number.isInteger(s.tee.lead) ? s.tee.lead : null };
@@ -1640,6 +1712,7 @@ function applySetup(s){
   }
   checkColumns();
   renderTwoMan();
+  renderGambling();
   renderRoomies();
 }
 /* ================= reading a workbook back =================
@@ -1899,21 +1972,34 @@ function shPairings(){
     const d=defs.find(x=>x.key===key);
     if(!d) return;
     const perm=TEE.perm[key];
+    const sec=[];
     if(key==="tm"){
-      rows.push(bannerRow(tmEventName(),4));
+      sec.push(bannerRow(tmEventName(),4));
       perm.forEach(gi=>{
         const grp=TWOMAN.groups[gi];
         if(!(grp[0][0]||grp[0][1]||grp[1][0]||grp[1][1])) return;
-        rows.push([rankRef(cols,grp[0][0]),rankRef(cols,grp[0][1]),rankRef(cols,grp[1][0]),rankRef(cols,grp[1][1])]);
+        sec.push([rankRef(cols,grp[0][0]),rankRef(cols,grp[0][1]),rankRef(cols,grp[1][0]),rankRef(cols,grp[1][1])]);
       });
     } else {
       const r=+key.slice(1);
-      rows.push(bannerRow(eventNames[r],4));
-      perm.forEach(gi=>rows.push(teams[r][gi].map((idx,c)=>({f:"Rankings!B"+rankRow(cols,c,idx)}))));
+      sec.push(bannerRow(eventNames[r],4));
+      perm.forEach(gi=>sec.push(teams[r][gi].map((idx,c)=>({f:"Rankings!B"+rankRow(cols,c,idx)}))));
     }
+    /* gambling rides beside the event, where it's always lived:
+       buy-in in E on the title row, detail lines down F */
+    const g=GAMBLING[key]||{};
+    const amt=String(g.amt||"").trim();
+    if(amt) sec[0][4]={v:isFinite(+amt)?+amt:amt, s:1};
+    const lines=String(g.det||"").replace(/\r/g,"").split("\n");
+    while(lines.length && !lines[lines.length-1].trim()) lines.pop();
+    lines.forEach((ln,i)=>{
+      if(!sec[i]) sec[i]=[];
+      if(ln.trim()) sec[i][5]={v:ln};
+    });
+    sec.forEach(r2=>rows.push(r2));
     rows.push(null);
   });
-  return {name:"Pairings", rows, widths:[20,20,20,20]};
+  return {name:"Pairings", rows, widths:[20,20,20,20,9,30]};
 }
 function shWinnings(){
   const {cols,eventNames}=STATE;
@@ -2066,6 +2152,7 @@ async function saveEverything(){
 }
 
 renderTwoMan();
+renderGambling();
 renderRoomies();
 </script>
 </body>
