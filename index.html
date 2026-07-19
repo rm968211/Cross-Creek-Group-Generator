@@ -363,6 +363,15 @@
   }
   .tm-slot.rep .nm{text-decoration:underline dotted var(--tee-red) 2px;text-underline-offset:3px}
   .tm-slot.dup{border-color:var(--tee-red);outline:1px solid var(--tee-red)}
+  /* ===== roommates ===== */
+  .rm-rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(max-width:760px){.rm-rooms{grid-template-columns:1fr}}
+  .rm-room{
+    background:#fff;border:1px solid var(--line);border-radius:4px;
+    padding:10px 12px;display:flex;align-items:center;gap:10px;
+  }
+  .rm-room .tm-glabel{flex:0 0 62px}
+
   .cell2{display:block;width:100%;padding:9px 12px;overflow-wrap:anywhere;word-break:break-word}
   @media(max-width:480px){.cell2{padding:7px 8px;font-size:13px}}
   td.teamsplit{border-left:2px solid var(--line)}
@@ -419,7 +428,8 @@
   <button class="tab on" data-view="start" onclick="showView('start')" title="Load a saved pairing or start a new one">Get Started</button>
   <button class="tab" data-view="main" onclick="showView('main')" title="Roster, preferences, and the three four-man events">Four-Man Events</button>
   <button class="tab" data-view="twoman" onclick="showView('twoman')" title="Hand-pick the two-man scramble teams and check them for collisions">Two-Man Scramble</button>
-  <button class="tab" data-view="tee" onclick="showView('tee')" title="Set the day's round order and optimize the tee-off order">Tee Sheet</button>
+  <button class="tab" data-view="roomies" onclick="showView('roomies')" title="Pair up roommates — completely optional, fills the Roomies sheet in the Excel workbook">Roommates</button>
+  <button class="tab" data-view="tee" onclick="showView('tee')" title="Set the day's round order and optimize the tee-off order">Tee Order</button>
   <button class="tab" data-view="save" onclick="showView('save')" title="Save the pairing and export it every way it comes">Save &amp; Export</button>
 </nav>
 
@@ -436,7 +446,7 @@
     </div>
     <div class="rbox">
       <h4>Existing pairing</h4>
-      <p style="font-size:14px;margin-bottom:12px">Load a saved file &mdash; roster, preferences, teams, two-man picks, and tee sheet, right where you left off.</p>
+      <p style="font-size:14px;margin-bottom:12px">Load a saved file &mdash; roster, preferences, teams, two-man picks, roommates, and tee order, right where you left off.</p>
       <button class="go" onclick="loadFile.click()" title="Load a cross-creek.json save file">Load a save</button>
     </div>
   </div>
@@ -510,8 +520,8 @@
         <li><b>Weight slider (1&ndash;10)</b> &mdash; how hard the solver tries to grant a wish; 10 is top priority, but no weight can force a repeat</li>
         <li><b>Balance by rank slider (0&ndash;10)</b> &mdash; how hard the solver works to even out team strength using each player's in-tier rank; 0 ignores rank entirely, 10 makes it a top priority (still never forces a repeat)</li>
         <li><b>&#128275; / &#128274; lock icon</b> &mdash; click a team's padlock to freeze that exact foursome; the next Generate leaves every locked team alone and only reshuffles the rest. Handy once a batch of teams looks right and you just want the solver to keep working on the ones that don't yet</li>
-        <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, the two-man picks, the tee sheet, and the teams if you've generated them. Save from the Save &amp; Export tab, load from Get Started</li>
-        <li><b>Copy / Excel / Text / Print</b> &mdash; on the Save &amp; Export tab; exports every event exactly as shown, hand-swaps included. The Excel workbook comes out in the classic format: roster grid up top, every event referencing it, plus Roomies and Winnings sheets</li>
+        <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, the two-man picks, the roommates, the tee order, and the teams if you've generated them. Save from the Save &amp; Export tab, load from Get Started</li>
+        <li><b>Copy / Excel / Text / Print</b> &mdash; on the Save &amp; Export tab; exports every event exactly as shown, hand-swaps included. The Excel workbook comes out in the classic format: Roomies, Rankings, Pairings (in tee-off order), and Winnings</li>
       </ul>
     </div>
   </div>
@@ -541,6 +551,16 @@
 </section>
 
 </div><!-- /view-twoman -->
+
+<div id="view-roomies" hidden>
+
+<section class="panel">
+  <h2><span class="hole">&#127968;</span> Roommates</h2>
+  <div id="rmRooms"></div>
+  <p class="hint">Completely optional &mdash; this just fills the Roomies sheet in the Excel workbook. Two to a room: click a player in the pool to drop them into the next open bed, or click an open bed first to aim the pick. Click a placed player to send them back. Anyone left in the pool? No worries &mdash; their row stays blank on the sheet.</p>
+</section>
+
+</div><!-- /view-roomies -->
 
 <div id="view-tee" hidden>
 
@@ -572,11 +592,11 @@
     <button class="go" onclick="saveEverything()" title="One zip with the save file, text, and Excel workbook">Save all (recommended)</button>
   </div>
   <div class="gen-bar" style="margin-top:12px">
-    <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, teams, two-man picks, and the tee sheet">Save file (.json)</button>
-    <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee sheet as plain text — paste into a group chat or email">Copy as text</button>
-    <button class="toolbtn" onclick="downloadExcel()" title="Download the Excel workbook — Pairings, Roomies, and Winnings sheets, set up like every year's spreadsheet">Download Excel (.xlsx)</button>
-    <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee sheet as a plain .txt file">Download text</button>
-    <button class="toolbtn" onclick="window.print()" title="Print or save as PDF — the pairings and tee sheet, print-friendly">Print / PDF</button>
+    <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, teams, two-man picks, roommates, and the tee order">Save file (.json)</button>
+    <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee order as plain text — paste into a group chat or email">Copy as text</button>
+    <button class="toolbtn" onclick="downloadExcel()" title="Download the Excel workbook — Roomies, Rankings, Pairings, and Winnings sheets, set up like every year's spreadsheet">Download Excel (.xlsx)</button>
+    <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee order as a plain .txt file">Download text</button>
+    <button class="toolbtn" onclick="window.print()" title="Print or save as PDF — the pairings and tee order, print-friendly">Print / PDF</button>
   </div>
 </section>
 
@@ -629,7 +649,7 @@ function checkColumns(){
   }
   return {allEqual, counts, expected};
 }
-["tA","tB","tC","tD"].forEach(id=>document.getElementById(id).addEventListener("input", ()=>{ checkColumns(); renderTwoMan(); }));
+["tA","tB","tC","tD"].forEach(id=>document.getElementById(id).addEventListener("input", ()=>{ checkColumns(); renderTwoMan(); renderRoomies(); }));
 checkColumns();
 function allPlayers(){
   const [A,B,C,D] = roster();
@@ -967,7 +987,7 @@ function renderState(scroll){
     <div class="rbox"><h4>Repeat check</h4>${repItems.length===0?'<p class="ok">Clean card — no two players share a foursome twice.</p>':'<ul><li>'+repItems.join('</li><li>')+'</li></ul>'}</div>
     <div class="rbox"><h4>Preference results</h4><ul>${prefHtml}</ul></div>
   </div>
-  <p class="hint">Set the day's order on the Tee Sheet tab, then grab everything from Save &amp; Export.</p></div>`;
+  <p class="hint">Set the day's order on the Tee Order tab, then grab everything from Save &amp; Export.</p></div>`;
 
   document.getElementById("results").innerHTML=html;
   if(scroll && !hasScrolled){ document.getElementById("results").scrollIntoView({behavior:"smooth"}); hasScrolled=true; }
@@ -1048,12 +1068,87 @@ function fourManSeen(){
   }
   return set;
 }
+/* ================= roommates =================
+   ROOMIES.rooms[i] = [name, name] — two to a room, completely optional;
+   it only exists to fill the Roomies sheet in the Excel workbook.
+   Anyone left in the pool just gets left off the sheet. */
+let ROOMIES = { rooms: [] };
+function syncRoomiesSize(){
+  const target = Math.ceil(allPlayers().length/2);
+  while(ROOMIES.rooms.length<target) ROOMIES.rooms.push(["",""]);
+  if(ROOMIES.rooms.length>target) ROOMIES.rooms.length=target;
+}
+let RMSEL = null; // aimed open bed {i,s} — next pool click lands here
+function rmSelect(i,s){
+  RMSEL = (RMSEL && RMSEL.i===i && RMSEL.s===s) ? null : {i,s};
+  renderRoomies();
+}
+function rmActiveSlot(){
+  if(RMSEL && ROOMIES.rooms[RMSEL.i] && !ROOMIES.rooms[RMSEL.i][RMSEL.s]) return RMSEL;
+  for(let i=0;i<ROOMIES.rooms.length;i++) for(let s=0;s<2;s++)
+    if(!ROOMIES.rooms[i][s]) return {i,s};
+  return null;
+}
+function rmAssign(nm){
+  const tgt = rmActiveSlot();
+  if(!tgt) return;
+  ROOMIES.rooms[tgt.i][tgt.s]=nm;
+  RMSEL=null;
+  renderRoomies();
+}
+function rmClear(i,s){
+  ROOMIES.rooms[i][s]="";
+  renderRoomies();
+}
+function renderRoomies(){
+  const box = document.getElementById("rmRooms");
+  if(!box) return;
+  syncRoomiesSize();
+  const players = allPlayers();
+  const pinfo = new Map(players.map(p=>[p.n, p.t+p.rank]));
+  const used = new Set();
+  ROOMIES.rooms.forEach(rm=>rm.forEach(nm=>{ if(nm) used.add(nm); }));
+  if(RMSEL && (RMSEL.i>=ROOMIES.rooms.length || ROOMIES.rooms[RMSEL.i][RMSEL.s])) RMSEL=null;
+  const active = rmActiveSlot();
+  const remaining = players.filter(p=>!used.has(p.n));
+  const aim = active ? "Room "+(active.i+1) : "";
+  let html = `<div class="tm-pool">
+    <div class="tm-pool-head"><span>The Pool &mdash; ${remaining.length} without a room</span>
+    <span class="tm-next">${active ? (remaining.length ? "next pick &rarr; "+aim : "pool's empty") : (remaining.length ? "rooms are full" : "everyone's placed")}</span></div>
+    <div class="tm-pool-cols">`;
+  for(const L of letters){
+    const col = remaining.filter(p=>p.t===L);
+    html+=`<div><div class="tm-pool-tier"><b>${L}</b> players</div>`;
+    html+=col.map(p=>`<button class="chip" onclick="rmAssign('${p.n.replace(/'/g,"\\'")}')" title="${active?"Click to drop into "+aim:"No open bed to drop into"}">${p.n} <span class="rtag">${p.t}${p.rank}</span></button>`).join("")
+      || `<p class="muted" style="font-size:12px;margin-bottom:6px">all placed</p>`;
+    html+=`</div>`;
+  }
+  html+=`</div></div><div class="rm-rooms">`;
+  ROOMIES.rooms.forEach((rm,i)=>{
+    html+=`<div class="rm-room"><div class="tm-glabel">Room ${i+1}</div>`;
+    for(let s=0;s<2;s++){
+      const nm = rm[s];
+      if(nm){
+        const tag = pinfo.has(nm) ? `<span class="rtag">${pinfo.get(nm)}</span>` : `<span class="rtag">not on roster</span>`;
+        html+=`<button class="tm-slot" onclick="rmClear(${i},${s})" title="Click to send back to the pool"><span class="nm">${nm} ${tag}</span><span class="x">&times;</span></button>`;
+      } else {
+        const isActive = !!active && active.i===i && active.s===s;
+        html+=`<button class="tm-slot empty${isActive?' sel':''}" onclick="rmSelect(${i},${s})" title="${isActive?'Next pool click lands here — click to un-aim':'Click to aim the next pool pick here'}">${isActive?'picking&hellip;':'open'}</button>`;
+      }
+      if(s===0) html+=`<span class="amp">&amp;</span>`;
+    }
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  box.innerHTML = html;
+}
 function showView(v){
-  ["start","main","twoman","tee","save"].forEach(k=>{
+  ["start","main","twoman","roomies","tee","save"].forEach(k=>{
     document.getElementById("view-"+k).hidden = (v!==k);
   });
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on", b.dataset.view===v));
   if(v==="twoman") renderTwoMan();
+  if(v==="roomies") renderRoomies();
   if(v==="tee") renderTee();
 }
 function startNew(){
@@ -1067,7 +1162,8 @@ function startNew(){
   TWOMAN={name:"Two-Man Scramble", groups:[]};
   document.getElementById("tmName").value=TWOMAN.name;
   TEE=null; TMSEL=null;
-  checkColumns(); renderTwoMan(); renderTee();
+  ROOMIES={rooms:[]}; RMSEL=null;
+  checkColumns(); renderTwoMan(); renderRoomies(); renderTee();
   statusEl.textContent="Fresh pairing — set the roster and hit Generate.";
   showView("main");
 }
@@ -1473,7 +1569,8 @@ function saveData(){
       a:r.querySelector(".p1").value, b:r.querySelector(".p2").value,
       w:+r.querySelector("input[type=range]").value })),
     rankWeight: +document.getElementById("rankBalance").value,
-    twoMan: { name: TWOMAN.name, groups: TWOMAN.groups }
+    twoMan: { name: TWOMAN.name, groups: TWOMAN.groups },
+    roomies: { rooms: ROOMIES.rooms }
   };
   if(TEE) out.tee = { seq: TEE.seq, perm: TEE.perm, optimized: TEE.optimized, lead: TEE.lead };
   if(STATE){
@@ -1507,6 +1604,12 @@ function applySetup(s){
     TWOMAN = { name:"Two-Man Scramble", groups: [] };
   }
   document.getElementById("tmName").value = TWOMAN.name;
+  if(s.roomies && Array.isArray(s.roomies.rooms)){
+    ROOMIES = { rooms: s.roomies.rooms.map(r=>[String((r&&r[0])||""), String((r&&r[1])||"")]) };
+  } else {
+    ROOMIES = { rooms: [] };
+  }
+  RMSEL=null;
   if(s.tee && Array.isArray(s.tee.seq)){
     TEE = { seq: s.tee.seq.filter(k=>typeof k==="string"), perm:{}, optimized: !!s.tee.optimized, hash: null,
             ranking: null, lead: Number.isInteger(s.tee.lead) ? s.tee.lead : null };
@@ -1517,6 +1620,7 @@ function applySetup(s){
   }
   checkColumns();
   renderTwoMan();
+  renderRoomies();
 }
 function loadAll(inp){
   const f = inp.files[0]; if(!f) return;
@@ -1575,7 +1679,7 @@ function resultsText(){
     const data = teeSheetData();
     if(data){
       const plain = s => s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
-      out += "\nTEE SHEET\n---------\n";
+      out += "\nTEE ORDER\n---------\n";
       data.rounds.forEach((rd,r)=>{
         out += "Round "+(r+1)+" — "+rd.name
              + (r>0 ? " (starts once group "+(rd.hold+1)+" of Round "+r+" is in)" : "")+"\n";
@@ -1599,21 +1703,20 @@ function downloadText(){
   dl("cross-creek-pairings.txt", resultsText(), "text/plain");
 }
 /* ================= Excel workbook (.xlsx) =================
-   Shaped like our past years' spreadsheets: a Pairings sheet with the
-   roster grid up top and every event's foursomes as live cell references
-   into it (events in round order, groups in tee-off order), a fill-in
-   Roomies sheet, and a Winnings sheet with running subtotals. An xlsx is
-   just a zip of XML files, so the zip code below does the heavy lifting
-   — still no libraries. */
+   Shaped like our past years' spreadsheets: Roomies, Rankings (every
+   player ranked 1..n in their tier), Pairings (events in round order,
+   groups in tee-off order, every player a live cell reference into
+   Rankings), and Winnings with running subtotals. An xlsx is just a zip
+   of XML files, so the zip code below does the heavy lifting — still no
+   libraries. */
 const XMLDECL='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const SS_NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 /* cell styles (indexes into cellXfs in XL_STYLES):
    1 bold · 2 section banner (white on green) · 3 bold centered
-   4 small gray note · 5 boxed fill-in cell */
+   4 boxed fill-in cell · 5 banner centered */
 const XL_STYLES = XMLDECL+`<styleSheet xmlns="${SS_NS}">`
-  +'<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font>'
+  +'<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font>'
   +'<font><b/><sz val="11"/><name val="Calibri"/></font>'
-  +'<font><i/><sz val="10"/><color rgb="FF666666"/><name val="Calibri"/></font>'
   +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'
   +'<fills count="3"><fill><patternFill patternType="none"/></fill>'
   +'<fill><patternFill patternType="gray125"/></fill>'
@@ -1624,10 +1727,10 @@ const XL_STYLES = XMLDECL+`<styleSheet xmlns="${SS_NS}">`
   +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
   +'<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
   +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"/>'
-  +'<xf numFmtId="0" fontId="3" fillId="2" borderId="0" xfId="0"/>'
+  +'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0"/>'
   +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf>'
-  +'<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"/>'
-  +'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/></cellXfs>'
+  +'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/>'
+  +'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs>'
   +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 function xmlEsc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function xlCol(i){ let s=""; for(i++; i; i=Math.floor((i-1)/26)) s=String.fromCharCode(65+(i-1)%26)+s; return s; }
@@ -1652,26 +1755,35 @@ function sheetXML(sh){
   });
   return XMLDECL+`<worksheet xmlns="${SS_NS}">${pre}<sheetData>${body}</sheetData></worksheet>`;
 }
-function bannerRow(title, span, note){
+function bannerRow(title, span){
   const row=[{v:title,s:2}];
   for(let i=1;i<span;i++) row.push({s:2});
-  if(note) row.push({v:note,s:4});
   return row;
 }
-function rosterRef(cols, nm){ // live reference into the Pairings roster grid, by name
+function rankRef(cols, nm){ // live reference into the Rankings sheet, by name
   if(!nm) return null;
-  for(let c=0;c<4;c++){ const i=cols[c].indexOf(nm); if(i>=0) return {f:letters[c]+(i+1)}; }
+  for(let c=0;c<4;c++){ const i=cols[c].indexOf(nm); if(i>=0) return {f:"Rankings!"+xlCol(c+1)+(i+2)}; }
   return {v:nm}; // name no longer on the roster — keep it as plain text
 }
-function shPairings(){
-  const {cols,n,eventNames,teams}=STATE;
-  const rows=[];
-  for(let i=0;i<n;i++){
-    const row=cols.map(col=>({v:col[i]||""}));
-    if(i===0) row[4]={v:"<<<"+new Date().getFullYear()+" Roster",s:4};
-    rows.push(row);
+function shRoomies(){ // one row per room; unfilled beds stay boxed for filling in by hand
+  const {cols}=STATE;
+  const rooms=Math.ceil([].concat(...cols).length/2);
+  const rows=[[{v:"Roomies:",s:1}]];
+  for(let i=0;i<rooms;i++){
+    const rm=ROOMIES.rooms[i]||["",""];
+    rows.push([rankRef(cols,rm[0])||{v:"",s:4}, rankRef(cols,rm[1])||{v:"",s:4}]);
   }
-  rows.push(null);
+  return {name:"Roomies", rows, widths:[20,20]};
+}
+function shRankings(){ // every player, ranked 1..n within their tier
+  const {cols,n}=STATE;
+  const rows=[[{v:"Rank",s:5},...letters.map(L=>({v:L,s:5}))]];
+  for(let i=0;i<n;i++) rows.push([{v:i+1,s:3},...cols.map(col=>({v:col[i]||""}))]);
+  return {name:"Rankings", rows, widths:[7,20,20,20,20]};
+}
+function shPairings(){
+  const {cols,eventNames,teams}=STATE;
+  const rows=[];
   /* events appear in round order, and each event's groups are listed
      top-to-bottom in the order they tee off */
   const defs=teeSync();
@@ -1680,25 +1792,20 @@ function shPairings(){
     if(!d) return;
     const perm=TEE.perm[key];
     if(key==="tm"){
-      rows.push(bannerRow(tmEventName(),4,"(each row: the two on the left play the two on the right)"));
+      rows.push(bannerRow(tmEventName(),4));
       perm.forEach(gi=>{
         const grp=TWOMAN.groups[gi];
         if(!(grp[0][0]||grp[0][1]||grp[1][0]||grp[1][1])) return;
-        rows.push([rosterRef(cols,grp[0][0]),rosterRef(cols,grp[0][1]),rosterRef(cols,grp[1][0]),rosterRef(cols,grp[1][1])]);
+        rows.push([rankRef(cols,grp[0][0]),rankRef(cols,grp[0][1]),rankRef(cols,grp[1][0]),rankRef(cols,grp[1][1])]);
       });
     } else {
       const r=+key.slice(1);
       rows.push(bannerRow(eventNames[r],4));
-      perm.forEach(gi=>rows.push(teams[r][gi].map((idx,c)=>({f:letters[c]+(idx+1)}))));
+      perm.forEach(gi=>rows.push(teams[r][gi].map((idx,c)=>({f:"Rankings!"+xlCol(c+1)+(idx+2)}))));
     }
     rows.push(null);
   });
-  return {name:"Pairings", rows, widths:[20,20,20,20,44]};
-}
-function shRoomies(){ // header + a boxed fill-in grid, one row per room pair
-  const rows=[[{v:"Roomies:",s:1}]];
-  for(let i=0;i<STATE.n*2;i++) rows.push([{v:"",s:5},{v:"",s:5}]);
-  return {name:"Roomies", rows, widths:[20,20]};
+  return {name:"Pairings", rows, widths:[20,20,20,20]};
 }
 function shWinnings(){
   const {cols,eventNames}=STATE;
@@ -1732,7 +1839,7 @@ function shWinnings(){
   return {name:"Winnings", rows, widths, freeze:true};
 }
 function xlsxBytes(){
-  const sheets=[shPairings(),shRoomies(),shWinnings()].filter(Boolean);
+  const sheets=[shRoomies(),shRankings(),shPairings(),shWinnings()].filter(Boolean);
   const RELS_NS='http://schemas.openxmlformats.org/package/2006/relationships';
   const files=[
     {name:"[Content_Types].xml", text: XMLDECL
@@ -1764,7 +1871,7 @@ function downloadExcel(){
   a.download="cross-creek-pairings.xlsx";
   document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
-  statusEl.textContent="Downloaded the Excel workbook — Pairings, Roomies, and Winnings, set up like every year's sheet.";
+  statusEl.textContent="Downloaded the Excel workbook — Roomies, Rankings, Pairings, and Winnings.";
 }
 
 /* ================= zip (store method, no compression) =================
@@ -1837,6 +1944,7 @@ function saveEverything(){
 }
 
 renderTwoMan();
+renderRoomies();
 </script>
 </body>
 </html>
