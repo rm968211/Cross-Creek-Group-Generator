@@ -531,13 +531,13 @@
     <button class="go" id="teeGoBtn" onclick="teeOptimize()" title="Rank every possible leadoff group by the best schedule it allows, then build the day around the winner (or whoever you pick below)">Optimize tee order</button>
     <span class="status" id="teeStatus"></span>
   </div>
-  <p class="hint">Arrange the day with the arrows, then optimize. No clocks here &mdash; play time varies too much for that. Assuming every group plays at the same pace, the optimizer orders each round's tee-offs so that a group's slowest-to-finish member is off the course as close as possible to when their next group is due up. Waits are measured in <em>slots</em> (one slot = the space between consecutive groups off the tee).</p>
+  <p class="hint">Arrange the day with the arrows, then optimize. No clocks here &mdash; real minutes depend on pace of play. The goal is simple: order each round's tee-offs so that when a player walks off 18, their next group is due up as soon as possible after. Any waiting is described in <em>tee-offs</em> &mdash; "waits ~2 tee-offs" means everyone in the group is done, then two more groups leave the tee before it's finally their turn.</p>
 </section>
 
 <section class="panel">
   <h2><span class="hole">2</span> Who Leads Off?</h2>
   <div id="teeRank"></div>
-  <p class="hint">There's rarely just one right answer &mdash; every group is ranked by the most efficient full day possible <em>if they tee off first in Round 1</em>, and &#9733; marks the ties for best. Click a group to build the day around them. Then fine-tune: the arrows on Round 1's card below nudge any group up or down, and the later rounds instantly re-fit themselves around your order.</p>
+  <p class="hint">There's rarely just one right answer &mdash; every group is ranked by how smooth the whole day can be <em>if they tee off first in Round 1</em>. &#9733; means the day literally can't flow better than with them out front (ties are common). Click a group to build the day around them. Then fine-tune: the arrows on Round 1's card below nudge any group up or down, and the later rounds instantly re-fit themselves around your order.</p>
 </section>
 
 <div id="teeSheet"></div>
@@ -1399,23 +1399,32 @@ function renderTee(){
   </div>`).join("");
   if(TEE.ranking){
     const g1=ordered[0].groups;
-    const bestCost=TEE.ranking[0].cost;
-    rank.innerHTML = TEE.ranking.map((e,i)=>`<div class="tee-order-row rank-row${TEE.lead===e.gi?' on':''}" onclick="teeLead(${e.gi})" title="${TEE.lead===e.gi?'Leading off — the day is built around this group':'Click to lead off with this group; the whole day rebuilds around them'}">
-      <span class="rno">#${i+1}${e.cost===bestCost?' <span class="star">&#9733;</span>':''}</span>
+    const b0=TEE.ranking[0];
+    rank.innerHTML = TEE.ranking.map((e,i)=>{
+      let metric;
+      if(e.cost===b0.cost) metric=`<span class="star">&#9733;</span> smoothest day possible`;
+      else{
+        const parts=[], dH=e.hold-b0.hold, dW=e.wait-b0.wait;
+        if(dH>0) parts.push(`rounds start ${dH} tee-off${dH>1?"s":""} later`);
+        if(dW>0) parts.push(`${dW} more tee-off${dW>1?"s":""} of standing around`);
+        metric = parts.join(" &middot; ") || "a hair behind the best";
+      }
+      return `<div class="tee-order-row rank-row${TEE.lead===e.gi?' on':''}" onclick="teeLead(${e.gi})" title="${TEE.lead===e.gi?'Leading off — the day is built around this group':'Click to lead off with this group; the whole day rebuilds around them'}">
+      <span class="rno">#${i+1}</span>
       <span class="rname">${g1[e.gi].label}</span>
-      <span class="rmetric">${e.hold} push-back &middot; ${e.wait} waiting</span>
-    </div>`).join("");
+      <span class="rmetric">${metric}</span>
+    </div>`;}).join("");
   } else {
     rank.innerHTML=`<p class="muted">Hit Optimize up top &mdash; every group gets ranked here by the best day possible with them leading off.</p>`;
   }
   const data=teeSheetData(defs);
   let html="";
   data.rounds.forEach((rd,r)=>{
-    html+=`<div class="event-card"><div class="ehead"><h3>Round ${r+1} &mdash; ${rd.name}</h3><span>${r>0?(rd.hold>0?`pushed back ${rd.hold} slot${rd.hold>1?"s":""} at the turn`:"rolls straight over"):"tee-off order &middot; yours to tweak"}</span></div>
+    html+=`<div class="event-card"><div class="ehead"><h3>Round ${r+1} &mdash; ${rd.name}</h3><span>${r>0?`starts once group ${rd.hold+1} of Round ${r} is in`:"tee-off order &middot; yours to tweak"}</span></div>
       <div class="table-scroll"><table><thead><tr><th></th><th>Group</th><th>${r>0?'Coming Off':''}</th></tr></thead><tbody>`;
     rd.slots.forEach((s,k)=>{
       html+=`<tr><td class="tno">${k+1}</td><td><span class="cell2">${s.label}</span></td>${
-        r>0 ? `<td class="ttime">${s.mp<0?"&mdash;":`slots ${s.offs.join(", ")} &nbsp;${s.wait>0?`<span class="waitflag" title="This group is done ${s.wait} slot${s.wait>1?"s":""} before their turn to tee off — they'll be standing around">~${s.wait} slot${s.wait>1?"s":""} of waiting</span>`:`<span class="roll" title="This group's last man walks off the course right as their slot comes up">rolls on</span>`}`}</td>`
+        r>0 ? `<td class="ttime">${s.mp<0?"&mdash;":`from groups ${s.offs.join(", ")} &nbsp;${s.wait>0?`<span class="waitflag" title="Everyone in this group is done, then ${s.wait} more group${s.wait>1?"s":""} leave${s.wait>1?"":"s"} the tee before it's their turn — that's the standing around">waits ~${s.wait} tee-off${s.wait>1?"s":""}</span>`:`<span class="roll" title="Their last player walks off 18 right as their turn comes up — no standing around">straight on</span>`}`}</td>`
             : `<td class="ttime"><button class="udbtn mini" ${k===0?'disabled':''} onclick="teeSlotMove(${k},-1)" title="Move this group up the tee order — later rounds re-fit automatically">&#9650;</button> <button class="udbtn mini" ${k===rd.slots.length-1?'disabled':''} onclick="teeSlotMove(${k},1)" title="Move this group down the tee order — later rounds re-fit automatically">&#9660;</button></td>`
       }</tr>`;
     });
@@ -1424,9 +1433,9 @@ function renderTee(){
   sheet.innerHTML=html;
   st.textContent = TEE.optimized
     ? (TEE.manual
-        ? `Round 1 hand-ordered — later rounds re-fit around it: pushed back ${data.totalHold} slots, ${data.totalWait} group-slots of waiting.`
-        : `Optimized — field pushed back ${data.totalHold} slots total, ${data.totalWait} group-slots of waiting across the day.`)
-    : `Using the order as listed — hit Optimize to rank the leadoffs and tighten the turnarounds.`;
+        ? `Round 1 is hand-ordered — later rounds arranged as smoothly as possible around it (${data.totalWait} tee-off${data.totalWait===1?"":"s"} of standing around across the field).`
+        : `Optimized — the smoothest day this setup allows: ${data.totalWait} tee-off${data.totalWait===1?"":"s"} of standing around across the whole field.`)
+    : `Using the order as listed — hit Optimize to rank the leadoff groups and smooth out the day.`;
 }
 
 /* ================= save / load ================= */
@@ -1547,9 +1556,9 @@ function resultsText(){
       out += "\nTEE SHEET\n---------\n";
       data.rounds.forEach((rd,r)=>{
         out += "Round "+(r+1)+" — "+rd.name
-             + (r>0 ? (rd.hold>0 ? " (pushed back "+rd.hold+" slot"+(rd.hold>1?"s":"")+" at the turn)" : " (rolls straight over)") : "")+"\n";
+             + (r>0 ? " (starts once group "+(rd.hold+1)+" of Round "+r+" is in)" : "")+"\n";
         rd.slots.forEach((s,k)=>{
-          out += "  "+(k+1)+".  "+plain(s.label)+(r>0&&s.wait>0?"  [~"+s.wait+" slot"+(s.wait>1?"s":"")+" of waiting]":"")+"\n";
+          out += "  "+(k+1)+".  "+plain(s.label)+(r>0&&s.wait>0?"  [waits ~"+s.wait+" tee-off"+(s.wait>1?"s":"")+"]":"")+"\n";
         });
         out += "\n";
       });
@@ -1586,7 +1595,7 @@ function downloadCSV(){
     const data = teeSheetData();
     if(data){
       const plain = s => s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
-      csv += "\nRound,Event,Slot,Group,Wait (slots)\n";
+      csv += "\nRound,Event,Tee Order,Group,Waits (tee-offs)\n";
       data.rounds.forEach((rd,r)=>rd.slots.forEach((s,k)=>{
         csv += [r+1, esc(rd.name), k+1, esc(plain(s.label)), r>0?s.wait:0].join(",")+"\n";
       }));
