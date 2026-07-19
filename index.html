@@ -526,10 +526,10 @@
   <h2><span class="hole">1</span> Round Order &amp; Timing</h2>
   <div id="teeOrderList"></div>
   <div class="gen-bar" style="margin-top:14px">
-    <button class="go" id="teeGoBtn" onclick="teeOptimize()" title="Rank every possible leadoff group by the best schedule it allows, then build the day around the winner (or whoever you pick below)">Optimize tee order</button>
+    <button class="go" id="teeGoBtn" onclick="teeOptimize()" title="Determine the best possible tee-off order for every round">Optimize tee-off order</button>
     <span class="status" id="teeStatus"></span>
   </div>
-  <p class="hint">Arrange the day with the arrows, then optimize. No clocks here &mdash; real minutes depend on pace of play. The goal is simple: order each round's tee-offs so that when a player walks off 18, their next group is due up as soon as possible after. Where a wait can't be avoided, the sheet says so plainly &mdash; "waits while 2 groups tee off" means everyone in that group is done playing before their turn comes up.</p>
+  <p class="hint">Pick the order of events, then press Optimize to determine the best possible tee-off order.</p>
 </section>
 
 <section class="panel">
@@ -1326,7 +1326,7 @@ function teeOptimize(){
   if(!STATE){ document.getElementById("teeStatus").textContent="Generate the four-man pairings first."; return; }
   const btn=document.getElementById("teeGoBtn");
   btn.disabled=true;
-  document.getElementById("teeStatus").textContent="Trying every leadoff group...";
+  document.getElementById("teeStatus").textContent="Optimizing...";
   setTimeout(()=>{
     const defs=teeSync();
     if(defs.length){
@@ -1410,9 +1410,7 @@ function renderTee(){
     html+=`</tbody></table></div></div>`;
   });
   sheet.innerHTML=html;
-  st.textContent = TEE.optimized
-    ? `Optimized — this is the smoothest the day can flow with this leadoff group.`
-    : `Using the order as listed — hit Optimize to rank the leadoff groups and smooth out the day.`;
+  st.textContent = TEE.optimized ? "Optimized." : "Not optimized.";
 }
 
 /* ================= save / load ================= */
