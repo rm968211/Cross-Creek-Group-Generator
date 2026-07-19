@@ -510,7 +510,7 @@
         <li><b>Balance by rank slider (0&ndash;10)</b> &mdash; how hard the solver works to even out team strength using each player's in-tier rank; 0 ignores rank entirely, 10 makes it a top priority (still never forces a repeat)</li>
         <li><b>&#128275; / &#128274; lock icon</b> &mdash; click a team's padlock to freeze that exact foursome; the next Generate leaves every locked team alone and only reshuffles the rest. Handy once a batch of teams looks right and you just want the solver to keep working on the ones that don't yet</li>
         <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, the two-man picks, the tee sheet, and the teams if you've generated them. Save from the Save &amp; Export tab, load from Get Started</li>
-        <li><b>Copy / CSV / Text / Print</b> &mdash; on the Save &amp; Export tab; exports every event exactly as shown, hand-swaps included</li>
+        <li><b>Copy / Excel / Text / Print</b> &mdash; on the Save &amp; Export tab; exports every event exactly as shown, hand-swaps included. The Excel workbook comes out in the classic format: roster grid up top, every event referencing it, plus Roomies and Winnings sheets</li>
       </ul>
     </div>
   </div>
@@ -568,12 +568,12 @@
 <section class="panel">
   <h2><span class="hole">&#128190;</span> Save &amp; Export</h2>
   <div class="gen-bar">
-    <button class="go" onclick="saveEverything()" title="One zip with the save file, text, and CSV">Save all (recommended)</button>
+    <button class="go" onclick="saveEverything()" title="One zip with the save file, text, and Excel workbook">Save all (recommended)</button>
   </div>
   <div class="gen-bar" style="margin-top:12px">
     <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, teams, two-man picks, and the tee sheet">Save file (.json)</button>
     <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee sheet as plain text — paste into a group chat or email">Copy as text</button>
-    <button class="toolbtn" onclick="downloadCSV()" title="Download a spreadsheet-ready file (opens in Excel) — pairings plus the tee sheet">Download Excel (CSV)</button>
+    <button class="toolbtn" onclick="downloadExcel()" title="Download the Excel workbook — Pairings, Roomies, and Winnings sheets, set up like every year's spreadsheet">Download Excel (.xlsx)</button>
     <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee sheet as a plain .txt file">Download text</button>
     <button class="toolbtn" onclick="window.print()" title="Print or save as PDF — the pairings and tee sheet, print-friendly">Print / PDF</button>
   </div>
@@ -1597,35 +1597,180 @@ function downloadText(){
   if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
   dl("cross-creek-pairings.txt", resultsText(), "text/plain");
 }
-function csvContent(){
-  const {cols,n,eventNames,teams} = STATE;
-  let csv = "Event,Team,A,B,C,D\n";
-  const esc = s => '"'+String(s).replace(/"/g,'""')+'"';
-  for(let r=0;r<teams.length;r++) for(let t=0;t<n;t++){
-    csv += [esc(eventNames[r]), t+1, ...teams[r][t].map((idx,c)=>esc(cols[c][idx]+" ("+letters[c]+(idx+1)+")"))].join(",")+"\n";
-  }
-  if(twoManHasPicks()){
-    const tag = nm => { if(!nm) return ""; for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return nm+" ("+letters[c]+(i+1)+")";} return nm; };
-    TWOMAN.groups.forEach((grp,g)=>grp.forEach((team,tt)=>{
-      if(!(team[0]||team[1])) return;
-      csv += [esc(tmEventName()), esc("G"+(g+1)+"-T"+(g*2+tt+1)), esc(tag(team[0])), esc(tag(team[1])), "", ""].join(",")+"\n";
-    }));
-  }
-  if(TEE){
-    const data = teeSheetData();
-    if(data){
-      const plain = s => s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
-      csv += "\nRound,Event,Tee Order,Group,Groups They Wait Through\n";
-      data.rounds.forEach((rd,r)=>rd.slots.forEach((s,k)=>{
-        csv += [r+1, esc(rd.name), k+1, esc(plain(s.label)), r>0?s.wait:0].join(",")+"\n";
-      }));
-    }
-  }
-  return csv;
+/* ================= Excel workbook (.xlsx) =================
+   Shaped like our past years' spreadsheets: a Pairings sheet with the
+   roster grid up top and every event's foursomes as live cell references
+   into it, a fill-in Roomies sheet, and a Winnings sheet with running
+   subtotals. An xlsx is just a zip of XML files, so the zip code below
+   does the heavy lifting — still no libraries. */
+const XMLDECL='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+const SS_NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+/* cell styles (indexes into cellXfs in XL_STYLES):
+   1 bold · 2 section banner (white on green) · 3 bold centered
+   4 small gray note · 5 boxed fill-in cell */
+const XL_STYLES = XMLDECL+`<styleSheet xmlns="${SS_NS}">`
+  +'<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font>'
+  +'<font><b/><sz val="11"/><name val="Calibri"/></font>'
+  +'<font><i/><sz val="10"/><color rgb="FF666666"/><name val="Calibri"/></font>'
+  +'<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>'
+  +'<fills count="3"><fill><patternFill patternType="none"/></fill>'
+  +'<fill><patternFill patternType="gray125"/></fill>'
+  +'<fill><patternFill patternType="solid"><fgColor rgb="FF2F6B45"/></patternFill></fill></fills>'
+  +'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'
+  +'<border><left style="thin"><color rgb="FFBBBBBB"/></left><right style="thin"><color rgb="FFBBBBBB"/></right>'
+  +'<top style="thin"><color rgb="FFBBBBBB"/></top><bottom style="thin"><color rgb="FFBBBBBB"/></bottom><diagonal/></border></borders>'
+  +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+  +'<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+  +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"/>'
+  +'<xf numFmtId="0" fontId="3" fillId="2" borderId="0" xfId="0"/>'
+  +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf>'
+  +'<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"/>'
+  +'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/></cellXfs>'
+  +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+function xmlEsc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function xlCol(i){ let s=""; for(i++; i; i=Math.floor((i-1)/26)) s=String.fromCharCode(65+(i-1)%26)+s; return s; }
+/* sh = {name, rows, widths, freeze}; a cell is null, {v:text|number, s:style} or {f:formula, s:style} */
+function sheetXML(sh){
+  let pre="";
+  if(sh.freeze) pre+='<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
+  if(sh.widths) pre+="<cols>"+sh.widths.map((w,i)=>w?`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`:"").join("")+"</cols>";
+  let body="";
+  sh.rows.forEach((row,ri)=>{
+    if(!row) return;
+    let cells="";
+    row.forEach((cell,ci)=>{
+      if(cell==null) return;
+      const ref=xlCol(ci)+(ri+1), st=cell.s?` s="${cell.s}"`:"";
+      if(cell.f!==undefined)            cells+=`<c r="${ref}"${st}><f>${xmlEsc(cell.f)}</f></c>`;
+      else if(typeof cell.v==="number") cells+=`<c r="${ref}"${st}><v>${cell.v}</v></c>`;
+      else if(cell.v)                   cells+=`<c r="${ref}" t="inlineStr"${st}><is><t xml:space="preserve">${xmlEsc(cell.v)}</t></is></c>`;
+      else if(cell.s)                   cells+=`<c r="${ref}"${st}/>`;
+    });
+    if(cells) body+=`<row r="${ri+1}">${cells}</row>`;
+  });
+  return XMLDECL+`<worksheet xmlns="${SS_NS}">${pre}<sheetData>${body}</sheetData></worksheet>`;
 }
-function downloadCSV(){
+function bannerRow(title, span, note){
+  const row=[{v:title,s:2}];
+  for(let i=1;i<span;i++) row.push({s:2});
+  if(note) row.push({v:note,s:4});
+  return row;
+}
+function rosterRef(cols, nm){ // live reference into the Pairings roster grid, by name
+  if(!nm) return null;
+  for(let c=0;c<4;c++){ const i=cols[c].indexOf(nm); if(i>=0) return {f:letters[c]+(i+1)}; }
+  return {v:nm}; // name no longer on the roster — keep it as plain text
+}
+function shPairings(){
+  const {cols,n,eventNames,teams}=STATE;
+  const rows=[];
+  for(let i=0;i<n;i++){
+    const row=cols.map(col=>({v:col[i]||""}));
+    if(i===0) row[4]={v:"<<<"+new Date().getFullYear()+" Roster",s:4};
+    rows.push(row);
+  }
+  rows.push(null);
+  if(twoManHasPicks()){
+    rows.push(bannerRow(tmEventName(),4,"(each row: the two on the left play the two on the right)"));
+    TWOMAN.groups.forEach(grp=>{
+      if(!(grp[0][0]||grp[0][1]||grp[1][0]||grp[1][1])) return;
+      rows.push([rosterRef(cols,grp[0][0]),rosterRef(cols,grp[0][1]),rosterRef(cols,grp[1][0]),rosterRef(cols,grp[1][1])]);
+    });
+    rows.push(null);
+  }
+  teams.forEach((ev,r)=>{
+    rows.push(bannerRow(eventNames[r],4));
+    ev.forEach(team=>rows.push(team.map((idx,c)=>({f:letters[c]+(idx+1)}))));
+    rows.push(null);
+  });
+  return {name:"Pairings", rows, widths:[20,20,20,20,44]};
+}
+function shRoomies(){ // header + a boxed fill-in grid, one row per room pair
+  const rows=[[{v:"Roomies:",s:1}]];
+  for(let i=0;i<STATE.n*2;i++) rows.push([{v:"",s:5},{v:"",s:5}]);
+  return {name:"Roomies", rows, widths:[20,20]};
+}
+function shWinnings(){
+  const {cols,eventNames}=STATE;
+  const players=[].concat(...cols);
+  const money=(twoManHasPicks()?[tmEventName()]:[]).concat(eventNames);
+  if(!money.length||!players.length) return null;
+  /* two money columns per day, each pair closed out by a running Subtotal
+     (the last one is the Final) — same shape as every year's Winnings sheet */
+  const segs=[]; let c=2;
+  for(let i=0;i<money.length;i+=2){
+    const seg={money:money.slice(i,i+2).map(h=>({h,c:c++}))};
+    seg.calcC=c++; segs.push(seg);
+  }
+  const last=segs[segs.length-1];
+  const head=[null,null];
+  segs.forEach(seg=>{ seg.money.forEach(m=>head[m.c]={v:m.h,s:3}); head[seg.calcC]={v:seg===last?"Final":"Subtotal",s:3}; });
+  const rows=[head];
+  players.forEach((nm,i)=>{
+    const R=i+2, row=[{v:nm}];
+    segs.forEach((seg,j)=>{
+      row[seg.calcC]= j===0
+        ? {f:seg.money.map(m=>xlCol(m.c)+R).join("+")}
+        : {f:`SUM(${xlCol(segs[j-1].calcC)}${R}:${xlCol(seg.money[seg.money.length-1].c)}${R})`};
+    });
+    rows.push(row);
+  });
+  const R0=2, R1=players.length+1, totals=[{v:"Total",s:1}];
+  for(let i=2;i<c;i++) totals[i]={f:`SUM(${xlCol(i)}${R0}:${xlCol(i)}${R1})`,s:1};
+  rows.push(totals);
+  const widths=[22,3]; for(let i=2;i<c;i++) widths.push(14);
+  return {name:"Winnings", rows, widths, freeze:true};
+}
+function shTee(){
+  if(!TEE||!STATE) return null;
+  const data=teeSheetData();
+  if(!data) return null;
+  const plain=s=>s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
+  const rows=[];
+  data.rounds.forEach((rd,r)=>{
+    rows.push(bannerRow("Round "+(r+1)+" — "+rd.name, 2, r>0?`(starts once group ${rd.hold+1} of Round ${r} is in)`:null));
+    rd.slots.forEach((s,k)=>{
+      const note=(r>0&&s.wait>0)?`waits while ${s.wait} group${s.wait>1?"s":""} tee${s.wait>1?"":"s"} off`:"";
+      rows.push([{v:k+1},{v:plain(s.label)},note?{v:note,s:4}:null]);
+    });
+    rows.push(null);
+  });
+  return {name:"Tee Sheet", rows, widths:[5,72,34]};
+}
+function xlsxBytes(){
+  const sheets=[shPairings(),shRoomies(),shWinnings(),shTee()].filter(Boolean);
+  const RELS_NS='http://schemas.openxmlformats.org/package/2006/relationships';
+  const files=[
+    {name:"[Content_Types].xml", text: XMLDECL
+      +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      +'<Default Extension="xml" ContentType="application/xml"/>'
+      +'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      +'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      +sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")
+      +'</Types>'},
+    {name:"_rels/.rels", text: XMLDECL
+      +`<Relationships xmlns="${RELS_NS}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+    {name:"xl/workbook.xml", text: XMLDECL
+      +`<workbook xmlns="${SS_NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>`
+      +sheets.map((sh,i)=>`<sheet name="${xmlEsc(sh.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")
+      +'</sheets><calcPr fullCalcOnLoad="1"/></workbook>'},
+    {name:"xl/_rels/workbook.xml.rels", text: XMLDECL
+      +`<Relationships xmlns="${RELS_NS}">`
+      +sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")
+      +`<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:"xl/styles.xml", text: XL_STYLES}
+  ].concat(sheets.map((sh,i)=>({name:`xl/worksheets/sheet${i+1}.xml`, text:sheetXML(sh)})));
+  return zipBytes(files);
+}
+function downloadExcel(){
   if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
-  dl("cross-creek-pairings.csv", csvContent(), "text/csv");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([xlsxBytes()],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+  a.download="cross-creek-pairings.xlsx";
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
+  statusEl.textContent="Downloaded the Excel workbook — Pairings, Roomies, and Winnings, set up like every year's sheet.";
 }
 
 /* ================= zip (store method, no compression) =================
@@ -1641,7 +1786,7 @@ function crc32(u8){
   for(let i=0;i<u8.length;i++) c=CRC_TABLE[(c^u8[i])&0xFF]^(c>>>8);
   return (c^-1)>>>0;
 }
-function makeZip(files){ // files: [{name, text}]
+function zipBytes(files){ // files: [{name, text}] or [{name, bytes}]
   const enc=new TextEncoder();
   const now=new Date();
   const dosTime=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1);
@@ -1649,7 +1794,7 @@ function makeZip(files){ // files: [{name, text}]
   const chunks=[], central=[];
   let offset=0;
   for(const f of files){
-    const name=enc.encode(f.name), data=enc.encode(f.text), crc=crc32(data);
+    const name=enc.encode(f.name), data=f.bytes||enc.encode(f.text), crc=crc32(data);
     const lh=new DataView(new ArrayBuffer(30));
     lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); // UTF-8 names
     lh.setUint16(8,0,true); lh.setUint16(10,dosTime,true); lh.setUint16(12,dosDate,true);
@@ -1676,21 +1821,25 @@ function makeZip(files){ // files: [{name, text}]
   eocd.setUint16(8,central.length,true); eocd.setUint16(10,central.length,true);
   eocd.setUint32(12,offset-cdStart,true); eocd.setUint32(16,cdStart,true);
   chunks.push(new Uint8Array(eocd.buffer));
-  return new Blob(chunks,{type:"application/zip"});
+  const out=new Uint8Array(chunks.reduce((n,c)=>n+c.length,0));
+  let pos=0;
+  for(const c of chunks){ out.set(c,pos); pos+=c.length; }
+  return out;
 }
+function makeZip(files){ return new Blob([zipBytes(files)],{type:"application/zip"}); }
 function saveEverything(){
   if(!STATE){ saveAll(); statusEl.textContent="Saved the setup file — generate pairings to get the full bundle."; return; }
   const dir="cross-creek-pairings/";
   const blob=makeZip([
     {name:dir+"cross-creek.json", text:JSON.stringify(saveData(),null,2)},
     {name:dir+"cross-creek-pairings.txt", text:resultsText()},
-    {name:dir+"cross-creek-pairings.csv", text:csvContent()}
+    {name:dir+"cross-creek-pairings.xlsx", bytes:xlsxBytes()}
   ]);
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob); a.download="cross-creek-pairings.zip";
   document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
-  statusEl.textContent="Saved all — one zip with the save file, text, and CSV.";
+  statusEl.textContent="Saved all — one zip with the save file, text, and Excel workbook.";
 }
 
 renderTwoMan();
