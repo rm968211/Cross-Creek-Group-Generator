@@ -568,7 +568,7 @@
 <section class="panel">
   <h2><span class="hole">&#128190;</span> Save &amp; Export</h2>
   <div class="gen-bar">
-    <button class="go" onclick="saveEverything()" title="One zip with the save file, text, and CSV, plus a print dialog for the PDF">Save all (recommended)</button>
+    <button class="go" onclick="saveEverything()" title="One zip with the save file, text, and CSV">Save all (recommended)</button>
   </div>
   <div class="gen-bar" style="margin-top:12px">
     <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, teams, two-man picks, and the tee sheet">Save file (.json)</button>
@@ -577,7 +577,7 @@
     <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee sheet as a plain .txt file">Download text</button>
     <button class="toolbtn" onclick="window.print()" title="Print or save as PDF — the pairings and tee sheet, print-friendly">Print / PDF</button>
   </div>
-  <p class="hint">Save all downloads one zip that unpacks into a folder &mdash; the save file (load it later from Get Started) plus the text and CSV exports &mdash; then opens a print window to save the PDF. The buttons below do each one individually.</p>
+  <p class="hint">Save all downloads one zip that unpacks into a folder &mdash; the save file (load it later from Get Started) plus the text and CSV exports. Want a PDF? Use Print / PDF below.</p>
 </section>
 
 </div><!-- /view-save -->
@@ -1691,8 +1691,7 @@ function saveEverything(){
   a.href=URL.createObjectURL(blob); a.download="cross-creek-pairings.zip";
   document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
-  statusEl.textContent="Saved all — one zip with the save file, text, and CSV; save the print window as PDF.";
-  setTimeout(()=>window.print(), 600);
+  statusEl.textContent="Saved all — one zip with the save file, text, and CSV.";
 }
 
 renderTwoMan();
