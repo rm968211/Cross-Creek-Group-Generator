@@ -206,6 +206,16 @@
   }
   .toolbtn:hover{border-color:var(--fair); color:var(--fair)}
   .export-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  .adv{margin-top:14px}
+  .adv summary{
+    cursor:pointer;user-select:none;list-style:none;
+    font-family:Verdana,sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--ink-soft);
+  }
+  .adv summary::-webkit-details-marker{display:none}
+  .adv summary::before{content:"\25B8\00a0\00a0"}
+  .adv[open] summary::before{content:"\25BE\00a0\00a0"}
+  .adv summary:hover{color:var(--fair)}
 
   .edit-note{
     background: #fff8e4;
@@ -446,8 +456,8 @@
     </div>
     <div class="rbox">
       <h4>Existing pairing</h4>
-      <p style="font-size:14px;margin-bottom:12px">Load a saved file &mdash; roster, preferences, teams, two-man picks, roommates, and tee order, right where you left off.</p>
-      <button class="go" onclick="loadFile.click()" title="Load a cross-creek.json save file">Load a save</button>
+      <p style="font-size:14px;margin-bottom:12px">Have a Cross Creek spreadsheet? Load it and everything comes back &mdash; roster, preferences, teams, two-man picks, roommates, and tee order, right where you left off. Older .json save files load too.</p>
+      <button class="go" onclick="loadFile.click()" title="Load a Cross Creek spreadsheet (.xlsx) — or a .json save file">Load a spreadsheet</button>
     </div>
   </div>
 </section>
@@ -520,8 +530,8 @@
         <li><b>Weight slider (1&ndash;10)</b> &mdash; how hard the solver tries to grant a wish; 10 is top priority, but no weight can force a repeat</li>
         <li><b>Balance by rank slider (0&ndash;10)</b> &mdash; how hard the solver works to even out team strength using each player's in-tier rank; 0 ignores rank entirely, 10 makes it a top priority (still never forces a repeat)</li>
         <li><b>&#128275; / &#128274; lock icon</b> &mdash; click a team's padlock to freeze that exact foursome; the next Generate leaves every locked team alone and only reshuffles the rest. Handy once a batch of teams looks right and you just want the solver to keep working on the ones that don't yet</li>
-        <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, the two-man picks, the roommates, the tee order, and the teams if you've generated them. Save from the Save &amp; Export tab, load from Get Started</li>
-        <li><b>Copy / Excel / Text / Print</b> &mdash; on the Save &amp; Export tab; exports every event exactly as shown, hand-swaps included. The Excel workbook comes out in the classic format: Roomies, Rankings, Pairings (in tee-off order), and Winnings</li>
+        <li><b>Save / Load</b> &mdash; the spreadsheet holds everything: roster, events, preferences, the two-man picks, the roommates, the tee order, and the teams if you've generated them. Save it from the Save &amp; Export tab, load it back from Get Started</li>
+        <li><b>Save spreadsheet</b> &mdash; the classic format: Roomies, Rankings, Pairings (in tee-off order), and Winnings; every event exactly as shown, hand-swaps included. Copy as text, print, and .json saves live under Advanced on the same tab</li>
       </ul>
     </div>
   </div>
@@ -589,15 +599,18 @@
 <section class="panel">
   <h2><span class="hole">&#128190;</span> Save &amp; Export</h2>
   <div class="gen-bar">
-    <button class="go" onclick="saveEverything()" title="One zip with the save file, text, and Excel workbook">Save all (recommended)</button>
+    <button class="go" onclick="downloadExcel()" title="The whole outing in one spreadsheet — Roomies, Rankings, Pairings, and Winnings, set up like every year's sheet. Load it right back in next time to pick up where you left off">Save spreadsheet (recommended)</button>
   </div>
-  <div class="gen-bar" style="margin-top:12px">
-    <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, teams, two-man picks, roommates, and the tee order">Save file (.json)</button>
-    <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee order as plain text — paste into a group chat or email">Copy as text</button>
-    <button class="toolbtn" onclick="downloadExcel()" title="Download the Excel workbook — Roomies, Rankings, Pairings, and Winnings sheets, set up like every year's spreadsheet">Download Excel (.xlsx)</button>
-    <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee order as a plain .txt file">Download text</button>
-    <button class="toolbtn" onclick="window.print()" title="Print or save as PDF — the pairings and tee order, print-friendly">Print / PDF</button>
-  </div>
+  <details class="adv">
+    <summary>Advanced</summary>
+    <div class="gen-bar" style="margin-top:12px">
+      <button class="toolbtn" onclick="saveEverything()" title="One zip with the spreadsheet, a .json save file, and plain text">Save all (.zip)</button>
+      <button class="toolbtn" onclick="saveAll()" title="Save everything to one .json file — roster, events, preferences, teams, two-man picks, roommates, and the tee order">Save file (.json)</button>
+      <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee order as plain text — paste into a group chat or email">Copy as text</button>
+      <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee order as a plain .txt file">Download text</button>
+      <button class="toolbtn" onclick="window.print()" title="Print or save as PDF — the pairings and tee order, print-friendly">Print / PDF</button>
+    </div>
+  </details>
 </section>
 
 </div><!-- /view-save -->
@@ -1980,7 +1993,7 @@ async function downloadExcel(){
   a.download="cross-creek-pairings.xlsx";
   document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
-  statusEl.textContent="Downloaded the Excel workbook — Roomies, Rankings, Pairings, and Winnings.";
+  statusEl.textContent="Saved the spreadsheet — Roomies, Rankings, Pairings, and Winnings. Load it back next time to pick up where you left off.";
 }
 
 /* ================= zip (store method, no compression) =================
@@ -2049,7 +2062,7 @@ async function saveEverything(){
   a.href=URL.createObjectURL(blob); a.download="cross-creek-pairings.zip";
   document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
-  statusEl.textContent="Saved all — one zip with the save file, text, and Excel workbook.";
+  statusEl.textContent="Saved all — one zip with the spreadsheet, a .json save, and plain text.";
 }
 
 renderTwoMan();
