@@ -269,7 +269,7 @@
   }
   td .cell.target{border-color:var(--fair); background:rgba(47,107,69,.1)}
   td .cell.target:hover{background:rgba(47,107,69,.22)}
-  td .cell.rep{ text-decoration: underline dotted var(--tee-red) 2px; text-underline-offset:3px; }
+  td .cell.rep, td .cell2.rep{ text-decoration: underline dotted var(--tee-red) 2px; text-underline-offset:3px; }
   .heart{color:var(--tee-red);font-size:12px;margin-left:4px}
   .warn{color:var(--tee-red);font-size:12px;margin-left:4px;font-family:Verdana,sans-serif}
 
@@ -288,9 +288,42 @@
   }
   #results:empty{display:none}
 
+  /* ===== tabs ===== */
+  .tabs{display:flex;justify-content:center;gap:10px;margin:-10px 0 26px;flex-wrap:wrap}
+  .tab{
+    font-family:Verdana,sans-serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+    background:var(--card);color:var(--ink-soft);
+    border:1px solid var(--line);border-radius:4px;
+    padding:11px 24px;cursor:pointer;
+  }
+  .tab:hover{border-color:var(--fair);color:var(--fair)}
+  .tab.on{background:var(--fair);color:#fff;border-color:var(--fair)}
+
+  /* ===== two-man picker ===== */
+  .tm-group{
+    background:#fff;border:1px solid var(--line);border-radius:4px;
+    padding:12px 14px;margin-bottom:10px;
+    display:grid;grid-template-columns:86px 1fr;gap:10px 14px;align-items:center;
+  }
+  .tm-glabel{font-family:Verdana,sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--tee-red)}
+  .tm-teams{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
+  @media(max-width:760px){.tm-group{grid-template-columns:1fr}.tm-teams{grid-template-columns:1fr}}
+  .tm-team{display:flex;align-items:center;gap:8px;min-width:0}
+  .tm-tno{font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.05em;color:var(--ink-soft);flex:0 0 24px}
+  .tm-team select{
+    flex:1 1 auto;min-width:0;
+    font-family:Georgia,serif;font-size:14px;padding:8px;
+    background:#fff;border:1px solid var(--line);border-radius:3px;color:var(--ink);
+  }
+  .tm-team select.bad{border-color:var(--tee-red);outline:1px solid var(--tee-red)}
+  .cell2{display:block;width:100%;padding:9px 12px;overflow-wrap:anywhere;word-break:break-word}
+  @media(max-width:480px){.cell2{padding:7px 8px;font-size:13px}}
+  td.teamsplit{border-left:2px solid var(--line)}
+  .muted{color:var(--ink-soft);font-style:italic}
+
   @media print{
     body{background:#fff;padding:0}
-    .panel:not(#reportPanel), header .est, .footer-note, .gen-bar, .export-bar, .edit-note{display:none !important}
+    .panel:not(#reportPanel), header .est, .footer-note, .gen-bar, .export-bar, .edit-note, .tabs{display:none !important}
     header{border-color:#000;margin-bottom:14px}
     .event-card{break-inside:avoid;border-color:#000}
     .event-card .ehead{background:#fff !important;color:#000;border-bottom:2px solid #000}
@@ -306,6 +339,13 @@
   <h1>Cross Creek Pairings<img class="logo" src="Jeff2.png" alt="Jeff"></h1>
   <div class="sub">Powered by JI (Jeff Intelligence)&trade;</div>
 </header>
+
+<nav class="tabs">
+  <button class="tab on" data-view="main" onclick="showView('main')" title="Roster, preferences, and the three four-man events">Four-Man Events</button>
+  <button class="tab" data-view="twoman" onclick="showView('twoman')" title="Hand-pick the two-man scramble teams and check them for collisions">Two-Man Scramble</button>
+</nav>
+
+<div id="view-main">
 
 <section class="panel">
   <h2><span class="hole">1</span> The Roster</h2>
@@ -375,7 +415,8 @@
         <li><b>Weight slider (1&ndash;10)</b> &mdash; how hard the solver tries to grant a wish; 10 is top priority, but no weight can force a repeat</li>
         <li><b>Balance by rank slider (0&ndash;10)</b> &mdash; how hard the solver works to even out team strength using each player's in-tier rank; 0 ignores rank entirely, 10 makes it a top priority (still never forces a repeat)</li>
         <li><b>&#128275; / &#128274; lock icon</b> &mdash; click a team's padlock to freeze that exact foursome; the next Generate leaves every locked team alone and only reshuffles the rest. Handy once a batch of teams looks right and you just want the solver to keep working on the ones that don't yet</li>
-        <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, and the teams if you've generated them. Load it and you're back exactly where you left off</li>
+        <li><b>Two-Man Scramble tab</b> &mdash; hand-pick the two-man teams (no solver); the picked groups show up down here alongside the other three events, and anyone who already shared a foursome with someone in their group of four &mdash; teammate or not &mdash; gets the same red collision flags</li>
+        <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, the two-man picks, and the teams if you've generated them. Load it and you're back exactly where you left off</li>
         <li><b>Copy / CSV / Text / Print</b> &mdash; exports the sheet exactly as shown, including your hand-swaps</li>
       </ul>
     </div>
@@ -386,6 +427,26 @@
 <div id="results"></div>
 
 <p class="footer-note">Repeats are penalized far above any preference &mdash; the solver only grants a wish if it can do so without making two players share a foursome twice.</p>
+
+</div><!-- /view-main -->
+
+<div id="view-twoman" hidden>
+
+<section class="panel">
+  <h2><span class="hole">1</span> The Two-Man Teams</h2>
+  <div class="events-row" style="margin-bottom:14px">
+    <input id="tmName" value="Two-Man Scramble" oninput="TWOMAN.name=this.value; if(STATE) renderState(false);" title="Rename the two-man event — this name shows on the team sheet and in the exports">
+  </div>
+  <div id="tmGroups"></div>
+  <p class="hint">Hand-pick every team &mdash; there's no solver here. Each group is the foursome that tees off together: two two-man teams sharing a cart path. The collision check below compares each group of four against the four-man events &mdash; anyone who already shared a foursome over there gets flagged, teammates or not.</p>
+</section>
+
+<section class="panel">
+  <h2><span class="hole">&#9873;</span> Collision Check</h2>
+  <div id="tmReport"></div>
+</section>
+
+</div><!-- /view-twoman -->
 </div>
 
 <script>
@@ -433,7 +494,7 @@ function checkColumns(){
   }
   return {allEqual, counts, expected};
 }
-["tA","tB","tC","tD"].forEach(id=>document.getElementById(id).addEventListener("input", checkColumns));
+["tA","tB","tC","tD"].forEach(id=>document.getElementById(id).addEventListener("input", ()=>{ checkColumns(); renderTwoMan(); }));
 checkColumns();
 function allPlayers(){
   const [A,B,C,D] = roster();
@@ -664,21 +725,44 @@ function analyze(){
       seen.get(k).push({r,t});
     }
   }
+  /* fold in the hand-picked two-man groups — every pair inside a group of four
+     counts, teammates or not, so sharing a cart path with an old foursome
+     partner is a collision just like sharing a team */
+  for(let g=0; g<TWOMAN.groups.length; g++){
+    const members = [];
+    for(let tt=0;tt<2;tt++) for(let s=0;s<2;s++){
+      const nm = TWOMAN.groups[g][tt][s]; if(!nm) continue;
+      const p = findP(nm); if(p) members.push({code:p[0]*100+p[1], tt, s});
+    }
+    for(let i=0;i<members.length;i++) for(let j=i+1;j<members.length;j++){
+      const a=members[i], b=members[j];
+      if(a.code===b.code) continue; // same player picked twice — the picker flags that itself
+      const k = Math.min(a.code,b.code)+"|"+Math.max(a.code,b.code);
+      if(!seen.has(k)) seen.set(k,[]);
+      seen.get(k).push({tm:true, g, cells:[{tt:a.tt,s:a.s},{tt:b.tt,s:b.s}]});
+    }
+  }
   const repeats = [...seen.entries()].filter(([k,v])=>v.length>1);
-  const repCells = new Set(); // "r|t|c" cells involved in a repeat
+  const repCells = new Set();   // "r|t|c" cells involved in a repeat
+  const tmRepCells = new Set(); // "g|team|slot" two-man slots involved in a repeat
   for(const [k,v] of repeats){
     const [x,y]=k.split("|").map(Number);
-    for(const loc of v){ repCells.add(loc.r+"|"+loc.t+"|"+(x/100|0)); repCells.add(loc.r+"|"+loc.t+"|"+(y/100|0)); }
+    for(const loc of v){
+      if(loc.tm){ for(const m of loc.cells) tmRepCells.add(loc.g+"|"+m.tt+"|"+m.s); }
+      else { repCells.add(loc.r+"|"+loc.t+"|"+(x/100|0)); repCells.add(loc.r+"|"+loc.t+"|"+(y/100|0)); }
+    }
   }
   const satisfied = new Set();
   const heartCells = new Set();
   for(const [k,v] of seen){
-    if(prefKeys.has(k)){ satisfied.add(k);
-      const [x,y]=k.split("|").map(Number);
-      for(const loc of v){ heartCells.add(loc.r+"|"+loc.t+"|"+(x/100|0)); heartCells.add(loc.r+"|"+loc.t+"|"+(y/100|0)); }
-    }
+    if(!prefKeys.has(k)) continue;
+    const locs4 = v.filter(loc=>!loc.tm); // prefs are only "granted" by the four-man events
+    if(!locs4.length) continue;
+    satisfied.add(k);
+    const [x,y]=k.split("|").map(Number);
+    for(const loc of locs4){ heartCells.add(loc.r+"|"+loc.t+"|"+(x/100|0)); heartCells.add(loc.r+"|"+loc.t+"|"+(y/100|0)); }
   }
-  return {repeats, repCells, heartCells, prefList, satisfied, seen};
+  return {repeats, repCells, tmRepCells, heartCells, prefList, satisfied, seen};
 }
 
 /* ================= render ================= */
@@ -713,9 +797,27 @@ function renderState(scroll){
     html+=`</tbody></table></div></div>`;
   }
 
+  if(twoManHasPicks()){
+    const tmName = tmEventName();
+    const findName = nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return [c,i];} return null; };
+    html+=`<div class="event-card"><div class="ehead"><h3>${tmName}</h3><span>two-man &middot; edit picks on the Two-Man Scramble tab</span></div>
+      <div class="table-scroll"><table><thead><tr><th></th><th colspan="2">First Team</th><th colspan="2">Second Team</th></tr></thead><tbody>`;
+    for(let g=0; g<TWOMAN.groups.length; g++){
+      html+=`<tr><td class="tno">${g+1}</td>`;
+      for(let tt=0;tt<2;tt++) for(let s=0;s<2;s++){
+        const nm = TWOMAN.groups[g][tt][s];
+        const p = nm ? findName(nm) : null;
+        const bad = an.tmRepCells.has(g+"|"+tt+"|"+s);
+        html+=`<td${tt===1&&s===0?' class="teamsplit"':''}><span class="cell2${bad?' rep':''}">${nm?nm:'<span class="muted">&mdash;</span>'}${p?` <span class="rtag">${letters[p[0]]}${p[1]+1}</span>`:''}${bad?' <span class="warn" title="Collision — already shared a foursome with someone in this group">&#9888;</span>':''}</span></td>`;
+      }
+      html+=`</tr>`;
+    }
+    html+=`</tbody></table></div></div>`;
+  }
+
   const repItems = an.repeats.map(([k,v])=>{
     const [x,y]=k.split("|").map(Number);
-    const where = v.map(loc=>eventNames[loc.r]+" T"+(loc.t+1)).join(", ");
+    const where = v.map(loc=>loc.tm ? tmEventName()+" G"+(loc.g+1) : eventNames[loc.r]+" T"+(loc.t+1)).join(", ");
     return `${cols[x/100|0][x%100]} &amp; ${cols[y/100|0][y%100]} &mdash; ${where}`;
   });
   let prefHtml="";
@@ -771,6 +873,96 @@ document.getElementById("results").addEventListener("click", e=>{
   SEL={r,t,c}; renderState(false); // different event/column: reselect
 });
 
+/* ================= two-man scramble =================
+   TWOMAN.groups[g] = [[name,name],[name,name]] — two hand-picked two-man teams
+   sharing one foursome. Group g holds teams T(2g+1) and T(2g+2). */
+let TWOMAN = { name:"Two-Man Scramble", groups: [] };
+function tmEventName(){ return TWOMAN.name.trim() || "Two-Man Scramble"; }
+function twoManHasPicks(){ return TWOMAN.groups.some(g=>g[0][0]||g[0][1]||g[1][0]||g[1][1]); }
+function syncTwoManSize(){
+  const n = roster()[0].length;
+  while(TWOMAN.groups.length<n) TWOMAN.groups.push([["",""],["",""]]);
+  if(TWOMAN.groups.length>n) TWOMAN.groups.length=n;
+}
+function tmPick(g,tt,s,v){
+  TWOMAN.groups[g][tt][s]=v;
+  renderTwoMan();
+  if(STATE) renderState(false);
+}
+function showView(v){
+  document.getElementById("view-main").hidden = (v!=="main");
+  document.getElementById("view-twoman").hidden = (v!=="twoman");
+  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on", b.dataset.view===v));
+  if(v==="twoman") renderTwoMan();
+}
+function renderTwoMan(){
+  const box = document.getElementById("tmGroups");
+  if(!box) return;
+  syncTwoManSize();
+  const players = allPlayers();
+  const used = new Map(); // name -> ["Group 1 / T1", ...]
+  TWOMAN.groups.forEach((grp,g)=>grp.forEach((team,tt)=>team.forEach(nm=>{
+    if(!nm) return;
+    if(!used.has(nm)) used.set(nm,[]);
+    used.get(nm).push("Group "+(g+1)+" / T"+(g*2+tt+1));
+  })));
+  const an = (STATE && twoManHasPicks()) ? analyze() : null;
+  let html="";
+  if(TWOMAN.groups.length===0) html = `<p class="muted">Add players to the roster first &mdash; the groups build themselves from it.</p>`;
+  for(let g=0; g<TWOMAN.groups.length; g++){
+    html+=`<div class="tm-group"><div class="tm-glabel">Group ${g+1}</div><div class="tm-teams">`;
+    for(let tt=0;tt<2;tt++){
+      html+=`<div class="tm-team"><span class="tm-tno">T${g*2+tt+1}</span>`;
+      for(let s=0;s<2;s++){
+        const val = TWOMAN.groups[g][tt][s];
+        const dup = !!val && used.get(val).length>1;
+        const col = !!an && an.tmRepCells.has(g+"|"+tt+"|"+s);
+        let opts = `<option value="">&mdash;</option>`, found=false;
+        for(const p of players){
+          const taken = used.has(p.n) && p.n!==val;
+          if(p.n===val) found=true;
+          opts+=`<option value="${p.n}" ${p.n===val?"selected":""}>${p.n} (${p.t}${p.rank})${taken?" &middot; picked":""}</option>`;
+        }
+        if(val && !found) opts+=`<option value="${val}" selected>${val} (not on roster)</option>`;
+        const tip = col ? "Collision — this player already shared a foursome with someone in this group"
+          : dup ? "This player is picked more than once — see the roster check below"
+          : "Pick a player — • picked means they're already on a team";
+        html+=`<select class="${(dup||col)?'bad':''}" onchange="tmPick(${g},${tt},${s},this.value)" title="${tip}">${opts}</select>`;
+        if(s===0) html+=`<span class="amp">&amp;</span>`;
+      }
+      html+=`</div>`;
+    }
+    html+=`</div></div>`;
+  }
+  box.innerHTML = html;
+
+  const unpicked = players.filter(p=>!used.has(p.n)).map(p=>`${p.n} (${p.t}${p.rank})`);
+  const dups = [...used.entries()].filter(([nm,v])=>v.length>1)
+    .map(([nm,v])=>`<li><span class="bad">${nm}</span> is picked ${v.length} times &mdash; ${v.join(", ")}</li>`);
+  let collHtml;
+  if(!STATE){
+    collHtml = `<p class="muted">Generate the four-man pairings first (Four-Man Events tab) &mdash; then this panel flags anyone here who already shared a foursome over there.</p>`;
+  } else if(!an){
+    collHtml = `<p class="muted">Pick some teams and collisions will show up here.</p>`;
+  } else {
+    const items = an.repeats.filter(([k,v])=>v.some(loc=>loc.tm)).map(([k,v])=>{
+      const [x,y]=k.split("|").map(Number);
+      const where = v.map(loc=>loc.tm ? tmEventName()+" G"+(loc.g+1) : STATE.eventNames[loc.r]+" T"+(loc.t+1)).join(", ");
+      return `${STATE.cols[x/100|0][x%100]} &amp; ${STATE.cols[y/100|0][y%100]} &mdash; ${where}`;
+    });
+    collHtml = items.length===0
+      ? `<p class="ok">Clean &mdash; nobody in these groups has shared a foursome in the four-man events.</p>`
+      : `<ul><li>${items.join("</li><li>")}</li></ul>`;
+  }
+  document.getElementById("tmReport").innerHTML = `<div class="report">
+    <div class="rbox"><h4>Collisions vs the four-man events</h4>${collHtml}</div>
+    <div class="rbox"><h4>Roster check</h4>
+      ${dups.length?`<ul>${dups.join("")}</ul>`:""}
+      ${unpicked.length?`<p><span class="muted">Still unpicked (${unpicked.length}):</span> ${unpicked.join(", ")}</p>`:(dups.length?"":`<p class="ok">Everyone is on a team, no doubles.</p>`)}
+    </div>
+  </div>`;
+}
+
 /* ================= save / load ================= */
 function dl(filename, text, type){
   const blob = new Blob([text], {type});
@@ -787,7 +979,8 @@ function saveAll(){
     prefs: [...document.querySelectorAll(".pref-row")].map(r=>({
       a:r.querySelector(".p1").value, b:r.querySelector(".p2").value,
       w:+r.querySelector("input[type=range]").value })),
-    rankWeight: +document.getElementById("rankBalance").value
+    rankWeight: +document.getElementById("rankBalance").value,
+    twoMan: { name: TWOMAN.name, groups: TWOMAN.groups }
   };
   if(STATE){
     out.roster = {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")};
@@ -807,7 +1000,18 @@ function applySetup(s){
   const rb = document.getElementById("rankBalance");
   rb.value = s.rankWeight!==undefined ? s.rankWeight : 0;
   rb.nextElementSibling.textContent = rb.value;
+  if(s.twoMan && Array.isArray(s.twoMan.groups)){
+    TWOMAN = { name: String(s.twoMan.name||"Two-Man Scramble"),
+      groups: s.twoMan.groups.map(g=>[
+        [String((g&&g[0]&&g[0][0])||""), String((g&&g[0]&&g[0][1])||"")],
+        [String((g&&g[1]&&g[1][0])||""), String((g&&g[1]&&g[1][1])||"")]
+      ]) };
+  } else {
+    TWOMAN = { name:"Two-Man Scramble", groups: [] };
+  }
+  document.getElementById("tmName").value = TWOMAN.name;
   checkColumns();
+  renderTwoMan();
 }
 function loadAll(inp){
   const f = inp.files[0]; if(!f) return;
@@ -828,6 +1032,7 @@ function loadAll(inp){
         STATE = {cols, n, eventNames: s.events, teams: s.teams, locked};
         SEL=null; hasScrolled=false;
         renderState(true);
+        renderTwoMan(); // now that teams are back, the collision check can run
         status.textContent = "Loaded — teams restored, click players to rearrange.";
       } else {
         STATE=null; document.getElementById("results").innerHTML="";
@@ -847,6 +1052,15 @@ function resultsText(){
     for(let t=0;t<n;t++){
       out += "  Team "+(t+1)+": "+teams[r][t].map((idx,c)=>cols[c][idx]+" ("+letters[c]+(idx+1)+")").join(", ")+"\n";
     }
+  }
+  if(twoManHasPicks()){
+    const tag = nm => { if(!nm) return "—"; for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return nm+" ("+letters[c]+(i+1)+")";} return nm; };
+    out += "\n" + tmEventName().toUpperCase() + "\n";
+    TWOMAN.groups.forEach((grp,g)=>{
+      if(!(grp[0][0]||grp[0][1]||grp[1][0]||grp[1][1])) return;
+      out += "  Group "+(g+1)+": T"+(g*2+1)+": "+tag(grp[0][0])+" & "+tag(grp[0][1])
+           + "  |  T"+(g*2+2)+": "+tag(grp[1][0])+" & "+tag(grp[1][1])+"\n";
+    });
   }
   return out;
 }
@@ -868,8 +1082,17 @@ function downloadCSV(){
   for(let r=0;r<teams.length;r++) for(let t=0;t<n;t++){
     csv += [esc(eventNames[r]), t+1, ...teams[r][t].map((idx,c)=>esc(cols[c][idx]+" ("+letters[c]+(idx+1)+")"))].join(",")+"\n";
   }
+  if(twoManHasPicks()){
+    const tag = nm => { if(!nm) return ""; for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return nm+" ("+letters[c]+(i+1)+")";} return nm; };
+    TWOMAN.groups.forEach((grp,g)=>grp.forEach((team,tt)=>{
+      if(!(team[0]||team[1])) return;
+      csv += [esc(tmEventName()), esc("G"+(g+1)+"-T"+(g*2+tt+1)), esc(tag(team[0])), esc(tag(team[1])), "", ""].join(",")+"\n";
+    }));
+  }
   dl("cross-creek-pairings.csv", csv, "text/csv");
 }
+
+renderTwoMan();
 </script>
 </body>
 </html>
