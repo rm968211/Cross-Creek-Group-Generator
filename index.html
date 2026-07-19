@@ -395,6 +395,8 @@
 
   @media print{
     body{background:#fff;padding:0}
+    /* print the whole outing — results and tee sheet — no matter which tab is open */
+    [hidden]{display:block !important}
     .panel:not(#reportPanel), header .est, .footer-note, .gen-bar, .export-bar, .edit-note, .tabs{display:none !important}
     header{border-color:#000;margin-bottom:14px}
     .event-card{break-inside:avoid;border-color:#000}
@@ -413,12 +415,34 @@
 </header>
 
 <nav class="tabs">
-  <button class="tab on" data-view="main" onclick="showView('main')" title="Roster, preferences, and the three four-man events">Four-Man Events</button>
+  <button class="tab on" data-view="start" onclick="showView('start')" title="Load a saved pairing or start a new one">Get Started</button>
+  <button class="tab" data-view="main" onclick="showView('main')" title="Roster, preferences, and the three four-man events">Four-Man Events</button>
   <button class="tab" data-view="twoman" onclick="showView('twoman')" title="Hand-pick the two-man scramble teams and check them for collisions">Two-Man Scramble</button>
-  <button class="tab" data-view="tee" onclick="showView('tee')" title="Set the day's round order, optimize the tee-off order so groups roll from 18 straight to the next first tee, and save or export everything">Tee Sheet</button>
+  <button class="tab" data-view="tee" onclick="showView('tee')" title="Set the day's round order and optimize the tee-off order">Tee Sheet</button>
+  <button class="tab" data-view="save" onclick="showView('save')" title="Save the pairing and export it every way it comes">Save &amp; Export</button>
 </nav>
 
-<div id="view-main">
+<input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadAll(this)">
+
+<div id="view-start">
+<section class="panel">
+  <h2><span class="hole">&#9971;</span> Get Started</h2>
+  <div class="report">
+    <div class="rbox">
+      <h4>New pairing</h4>
+      <p style="font-size:14px;margin-bottom:12px">Start fresh with the default roster and events.</p>
+      <button class="go" onclick="startNew()" title="Start a fresh pairing — roster and events reset, no teams yet">Start new</button>
+    </div>
+    <div class="rbox">
+      <h4>Existing pairing</h4>
+      <p style="font-size:14px;margin-bottom:12px">Load a saved file &mdash; roster, preferences, teams, two-man picks, and tee sheet, right where you left off.</p>
+      <button class="go" onclick="loadFile.click()" title="Load a cross-creek.json save file">Load a save</button>
+    </div>
+  </div>
+</section>
+</div><!-- /view-start -->
+
+<div id="view-main" hidden>
 
 <section class="panel">
   <h2><span class="hole">1</span> The Roster</h2>
@@ -462,9 +486,6 @@
   <h2><span class="hole">4</span> Tee It Up</h2>
   <div class="gen-bar">
     <button class="go" id="goBtn" onclick="generate()" title="Solve for teams: zero repeats first, granted preferences second. Locked teams (padlock icon on the results below) stay put — only the unlocked ones get reshuffled.">Generate pairings</button>
-    <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, and the teams if you've generated them">Save</button>
-    <button class="toolbtn" onclick="loadFile.click()" title="Load a saved file — restores everything, teams included if the file has them">Load</button>
-    <input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadAll(this)">
     <span class="status" id="status">Ready when you are.</span>
   </div>
 </section>
@@ -488,8 +509,8 @@
         <li><b>Weight slider (1&ndash;10)</b> &mdash; how hard the solver tries to grant a wish; 10 is top priority, but no weight can force a repeat</li>
         <li><b>Balance by rank slider (0&ndash;10)</b> &mdash; how hard the solver works to even out team strength using each player's in-tier rank; 0 ignores rank entirely, 10 makes it a top priority (still never forces a repeat)</li>
         <li><b>&#128275; / &#128274; lock icon</b> &mdash; click a team's padlock to freeze that exact foursome; the next Generate leaves every locked team alone and only reshuffles the rest. Handy once a batch of teams looks right and you just want the solver to keep working on the ones that don't yet</li>
-        <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, the two-man picks, and the teams if you've generated them. Load it and you're back exactly where you left off</li>
-        <li><b>Copy / CSV / Text / Print</b> &mdash; on the Tee Sheet tab; exports every event exactly as shown, hand-swaps and tee times included</li>
+        <li><b>Save / Load</b> &mdash; one file holds everything: roster, events, preferences, the two-man picks, the tee sheet, and the teams if you've generated them. Save from the Save &amp; Export tab, load from Get Started</li>
+        <li><b>Copy / CSV / Text / Print</b> &mdash; on the Save &amp; Export tab; exports every event exactly as shown, hand-swaps included</li>
       </ul>
     </div>
   </div>
@@ -540,23 +561,30 @@
 
 <div id="teeSheet"></div>
 
+</div><!-- /view-tee -->
+
+<div id="view-save" hidden>
+
 <section class="panel">
-  <h2><span class="hole">3</span> Save &amp; Export</h2>
+  <h2><span class="hole">&#128190;</span> Save &amp; Export</h2>
   <div class="gen-bar">
-    <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, teams, two-man picks, and this tee sheet">Save</button>
-    <button class="toolbtn" onclick="loadFile.click()" title="Load a saved file — restores everything, tee sheet included if the file has one">Load</button>
+    <button class="go" onclick="saveEverything()" title="One click, every format — the save file plus text, CSV, and a print dialog for the PDF">Save all (recommended)</button>
+  </div>
+  <div class="gen-bar" style="margin-top:12px">
+    <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, teams, two-man picks, and the tee sheet">Save file (.json)</button>
     <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee sheet as plain text — paste into a group chat or email">Copy as text</button>
     <button class="toolbtn" onclick="downloadCSV()" title="Download a spreadsheet-ready file (opens in Excel) — pairings plus the tee sheet">Download CSV</button>
     <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee sheet as a plain .txt file">Download text</button>
-    <button class="toolbtn" onclick="window.print()" title="Print-friendly tee sheet — just the header and the rounds below">Print / PDF</button>
+    <button class="toolbtn" onclick="window.print()" title="Print or save as PDF — the pairings and tee sheet, print-friendly">Print / PDF</button>
   </div>
-  <p class="hint">One save file holds the whole outing. Text and CSV exports include every event's teams plus the tee sheet above.</p>
+  <p class="hint">Save all grabs everything in one go: the save file (load it later from Get Started), the text and CSV exports, and a print window for the PDF. The buttons below do each one individually.</p>
 </section>
 
-</div><!-- /view-tee -->
+</div><!-- /view-save -->
 </div>
 
 <script>
+const statusEl = document.getElementById("status");
 const DEFAULT = {
   A: ["Zeke Deflorio","John Baucco","Shawn McWilliams","Ryan Weed","Ryan Miers","Denny Miers","Joe Locigno"],
   B: ["Doug Bennett","Mike Bregitzer","Alan Scott","Don Andrews","Frank Skully","Bud Deflorio","Chris Palmeri"],
@@ -657,12 +685,12 @@ function generate(){
   if(!chk.allEqual){
     const letters=["A","B","C","D"];
     const detail = letters.map((L,i)=>L+": "+chk.counts[i]).join(", ");
-    status.textContent = "Can't generate — column sizes don't match ("+detail+"). See the roster for what's off.";
+    statusEl.textContent = "Can't generate — column sizes don't match ("+detail+"). See the roster for what's off.";
     document.getElementById("rosterErr").scrollIntoView({behavior:"smooth", block:"center"});
     return;
   }
   if(chk.counts[0]<2){
-    status.textContent = "Can't generate — need at least 2 players per column to make teams.";
+    statusEl.textContent = "Can't generate — need at least 2 players per column to make teams.";
     return;
   }
   const cols = roster();
@@ -675,7 +703,7 @@ function generate(){
   const carryLocks = STATE && sameCols(STATE.cols, cols) && STATE.eventNames.length===eventNames.length;
   const prevLocked = carryLocks ? STATE.locked : null;
   const prevTeams = carryLocks ? STATE.teams : null;
-  goBtn.disabled = true; status.textContent = "Shuffling the shoe...";
+  goBtn.disabled = true; statusEl.textContent = "Shuffling the shoe...";
   hasScrolled = false;
   setTimeout(()=>{ run(cols,n,eventNames,prefs,rankWeight,prevLocked,prevTeams); goBtn.disabled=false; }, 30);
 }
@@ -939,11 +967,11 @@ function renderState(scroll){
     <div class="rbox"><h4>Repeat check</h4>${repItems.length===0?'<p class="ok">Clean card — no two players share a foursome twice.</p>':'<ul><li>'+repItems.join('</li><li>')+'</li></ul>'}</div>
     <div class="rbox"><h4>Preference results</h4><ul>${prefHtml}</ul></div>
   </div>
-  <p class="hint">Saving and exporting live on the Tee Sheet tab &mdash; set the day's order there and everything exports together.</p></div>`;
+  <p class="hint">Set the day's order on the Tee Sheet tab, then grab everything from Save &amp; Export.</p></div>`;
 
   document.getElementById("results").innerHTML=html;
   if(scroll && !hasScrolled){ document.getElementById("results").scrollIntoView({behavior:"smooth"}); hasScrolled=true; }
-  if(scroll) status.textContent = repItems.length===0 ? "Done — clean card. Click any two same-letter players to swap." : "Done — repeats flagged in red; swap players to fix or regenerate.";
+  if(scroll) statusEl.textContent = repItems.length===0 ? "Done — clean card. Click any two same-letter players to swap." : "Done — repeats flagged in red; swap players to fix or regenerate.";
 }
 
 /* click-to-swap, click-to-lock */
@@ -968,7 +996,7 @@ document.getElementById("results").addEventListener("click", e=>{
     STATE.teams[r][SEL.t][c] = tmp;
     SEL=null; renderState(false);
     const an=analyze();
-    status.textContent = an.repeats.length===0 ? "Swapped — still a clean card." : "Swapped — heads up, that created "+an.repeats.length+" repeat"+(an.repeats.length>1?"s":"")+" (flagged in red).";
+    statusEl.textContent = an.repeats.length===0 ? "Swapped — still a clean card." : "Swapped — heads up, that created "+an.repeats.length+" repeat"+(an.repeats.length>1?"s":"")+" (flagged in red).";
     return;
   }
   SEL={r,t,c}; renderState(false); // different event/column: reselect
@@ -1021,12 +1049,27 @@ function fourManSeen(){
   return set;
 }
 function showView(v){
-  document.getElementById("view-main").hidden = (v!=="main");
-  document.getElementById("view-twoman").hidden = (v!=="twoman");
-  document.getElementById("view-tee").hidden = (v!=="tee");
+  ["start","main","twoman","tee","save"].forEach(k=>{
+    document.getElementById("view-"+k).hidden = (v!==k);
+  });
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on", b.dataset.view===v));
   if(v==="twoman") renderTwoMan();
   if(v==="tee") renderTee();
+}
+function startNew(){
+  tA.value=DEFAULT.A.join("\n"); tB.value=DEFAULT.B.join("\n");
+  tC.value=DEFAULT.C.join("\n"); tD.value=DEFAULT.D.join("\n");
+  const evDefaults=["Slivo Scramble","6/6/6 Scramble","White Tee Scramble"];
+  document.querySelectorAll("#events input").forEach((el,i)=>{ el.value=evDefaults[i]||el.value; });
+  document.getElementById("prefs").innerHTML=""; prefCount=0;
+  const rb=document.getElementById("rankBalance"); rb.value=0; rb.nextElementSibling.textContent="0";
+  STATE=null; SEL=null; document.getElementById("results").innerHTML="";
+  TWOMAN={name:"Two-Man Scramble", groups:[]};
+  document.getElementById("tmName").value=TWOMAN.name;
+  TEE=null; TMSEL=null;
+  checkColumns(); renderTwoMan(); renderTee();
+  statusEl.textContent="Fresh pairing — set the roster and hit Generate.";
+  showView("main");
 }
 function renderTwoMan(){
   const box = document.getElementById("tmGroups");
@@ -1440,7 +1483,7 @@ function saveAll(){
     out.locked = STATE.locked;
   }
   dl("cross-creek.json", JSON.stringify(out,null,2), "application/json");
-  status.textContent = STATE ? "Saved — roster, preferences, and teams, all in one file."
+  statusEl.textContent = STATE ? "Saved — roster, preferences, and teams, all in one file."
                              : "Saved — roster and preferences (generate teams and save again to include them).";
 }
 function applySetup(s){
@@ -1485,7 +1528,7 @@ function loadAll(inp){
         const R = (s.events||[]).length;
         const ok = Array.isArray(s.teams) && s.teams.length===R &&
           s.teams.every(rt=>Array.isArray(rt)&&rt.length===n&&rt.every(tm=>Array.isArray(tm)&&tm.length===4&&tm.every(i=>Number.isInteger(i)&&i>=0&&i<n)));
-        if(!ok){ status.textContent="Loaded the roster and preferences, but the team data in that file looked off."; return; }
+        if(!ok){ statusEl.textContent="Loaded the roster and preferences, but the team data in that file looked off."; return; }
         const lockedOk = Array.isArray(s.locked) && s.locked.length===R && s.locked.every(row=>Array.isArray(row)&&row.length===n);
         const locked = lockedOk ? s.locked.map(row=>row.map(v=>!!v)) : s.teams.map(rt=>rt.map(()=>false));
         STATE = {cols, n, eventNames: s.events, teams: s.teams, locked};
@@ -1494,13 +1537,14 @@ function loadAll(inp){
         renderTwoMan(); // now that teams are back, the collision check can run
         if(TEE) teeSync(); // adopt the loaded groups as the tee sheet's baseline
         renderTee();
-        status.textContent = "Loaded — teams restored, click players to rearrange.";
+        statusEl.textContent = "Loaded — teams restored, click players to rearrange.";
       } else {
         STATE=null; document.getElementById("results").innerHTML="";
         renderTee();
-        status.textContent = "Loaded — roster and preferences restored. Hit Generate for teams.";
+        statusEl.textContent = "Loaded — roster and preferences restored. Hit Generate for teams.";
       }
-    }catch(e){ status.textContent = "That file didn't look like a Cross Creek save."; }
+      showView("main");
+    }catch(e){ statusEl.textContent = "That file didn't look like a Cross Creek save."; showView("main"); }
   };
   rd.readAsText(f); inp.value="";
 }
@@ -1542,17 +1586,17 @@ function resultsText(){
   return out;
 }
 function copyResults(){
-  if(!STATE){ status.textContent="Generate pairings first."; return; }
+  if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
   navigator.clipboard.writeText(resultsText()).then(
-    ()=>{ status.textContent="Copied — paste it anywhere."; },
+    ()=>{ statusEl.textContent="Copied — paste it anywhere."; },
     ()=>{ downloadText(); });
 }
 function downloadText(){
-  if(!STATE){ status.textContent="Generate pairings first."; return; }
+  if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
   dl("cross-creek-pairings.txt", resultsText(), "text/plain");
 }
 function downloadCSV(){
-  if(!STATE){ status.textContent="Generate pairings first."; return; }
+  if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
   const {cols,n,eventNames,teams} = STATE;
   let csv = "Event,Team,A,B,C,D\n";
   const esc = s => '"'+String(s).replace(/"/g,'""')+'"';
@@ -1577,6 +1621,14 @@ function downloadCSV(){
     }
   }
   dl("cross-creek-pairings.csv", csv, "text/csv");
+}
+function saveEverything(){
+  saveAll();
+  if(!STATE){ statusEl.textContent="Saved the setup file — generate pairings to get the text, CSV, and PDF too."; return; }
+  /* stagger so each download lands before the next fires, print dialog last */
+  setTimeout(downloadText, 300);
+  setTimeout(downloadCSV, 600);
+  setTimeout(()=>{ statusEl.textContent="Saved all — file, text, and CSV downloaded; save the print window as PDF."; window.print(); }, 1100);
 }
 
 renderTwoMan();
