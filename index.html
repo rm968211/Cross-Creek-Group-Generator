@@ -1889,7 +1889,7 @@ const XMLDECL='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const SS_NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 /* cell styles (indexes into cellXfs in XL_STYLES):
    1 bold · 2 section banner (white on green) · 3 bold centered
-   4 boxed fill-in cell · 5 banner centered · 6 bold dollars · 7 wrapped text */
+   4 boxed fill-in cell · 5 banner centered · 6 bold dollars */
 const XL_STYLES = XMLDECL+`<styleSheet xmlns="${SS_NS}">`
   +'<numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0"/></numFmts>'
   +'<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font>'
@@ -1908,8 +1908,7 @@ const XL_STYLES = XMLDECL+`<styleSheet xmlns="${SS_NS}">`
   +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf>'
   +'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/>'
   +'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf>'
-  +'<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
-  +'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment wrapText="1" vertical="top"/></xf></cellXfs>'
+  +'<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>'
   +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 function xmlEsc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function xlCol(i){ let s=""; for(i++; i; i=Math.floor((i-1)/26)) s=String.fromCharCode(65+(i-1)%26)+s; return s; }
@@ -1993,11 +1992,24 @@ function shPairings(){
     const g=GAMBLING[key]||{};
     const amt=String(g.amt||"").trim();
     if(amt) sec[0][4]=isFinite(+amt) ? {v:+amt, s:6} : {v:amt, s:1};
+    /* long lines flow downward, one column-width piece per row, so no
+       row ever has to grow to fit them */
     const lines=String(g.det||"").replace(/\r/g,"").split("\n");
     while(lines.length && !lines[lines.length-1].trim()) lines.pop();
-    lines.forEach((ln,i)=>{
+    const flat=[];
+    lines.forEach(ln=>{
+      const words=ln.trim().split(/\s+/).filter(Boolean);
+      if(!words.length){ flat.push(""); return; }
+      let cur="";
+      words.forEach(w=>{
+        if(cur && cur.length+1+w.length>32){ flat.push(cur); cur=w; }
+        else cur = cur ? cur+" "+w : w;
+      });
+      flat.push(cur);
+    });
+    flat.forEach((ln,i)=>{
       if(!sec[i]) sec[i]=[];
-      if(ln.trim()) sec[i][5]={v:ln, s:7};
+      if(ln) sec[i][5]={v:ln};
     });
     sec.forEach(r2=>rows.push(r2));
     rows.push(null);
