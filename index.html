@@ -1601,9 +1601,10 @@ function downloadText(){
 /* ================= Excel workbook (.xlsx) =================
    Shaped like our past years' spreadsheets: a Pairings sheet with the
    roster grid up top and every event's foursomes as live cell references
-   into it, a fill-in Roomies sheet, and a Winnings sheet with running
-   subtotals. An xlsx is just a zip of XML files, so the zip code below
-   does the heavy lifting — still no libraries. */
+   into it (events in round order, groups in tee-off order), a fill-in
+   Roomies sheet, and a Winnings sheet with running subtotals. An xlsx is
+   just a zip of XML files, so the zip code below does the heavy lifting
+   — still no libraries. */
 const XMLDECL='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
 const SS_NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 /* cell styles (indexes into cellXfs in XL_STYLES):
@@ -1671,17 +1672,25 @@ function shPairings(){
     rows.push(row);
   }
   rows.push(null);
-  if(twoManHasPicks()){
-    rows.push(bannerRow(tmEventName(),4,"(each row: the two on the left play the two on the right)"));
-    TWOMAN.groups.forEach(grp=>{
-      if(!(grp[0][0]||grp[0][1]||grp[1][0]||grp[1][1])) return;
-      rows.push([rosterRef(cols,grp[0][0]),rosterRef(cols,grp[0][1]),rosterRef(cols,grp[1][0]),rosterRef(cols,grp[1][1])]);
-    });
-    rows.push(null);
-  }
-  teams.forEach((ev,r)=>{
-    rows.push(bannerRow(eventNames[r],4));
-    ev.forEach(team=>rows.push(team.map((idx,c)=>({f:letters[c]+(idx+1)}))));
+  /* events appear in round order, and each event's groups are listed
+     top-to-bottom in the order they tee off */
+  const defs=teeSync();
+  TEE.seq.forEach(key=>{
+    const d=defs.find(x=>x.key===key);
+    if(!d) return;
+    const perm=TEE.perm[key];
+    if(key==="tm"){
+      rows.push(bannerRow(tmEventName(),4,"(each row: the two on the left play the two on the right)"));
+      perm.forEach(gi=>{
+        const grp=TWOMAN.groups[gi];
+        if(!(grp[0][0]||grp[0][1]||grp[1][0]||grp[1][1])) return;
+        rows.push([rosterRef(cols,grp[0][0]),rosterRef(cols,grp[0][1]),rosterRef(cols,grp[1][0]),rosterRef(cols,grp[1][1])]);
+      });
+    } else {
+      const r=+key.slice(1);
+      rows.push(bannerRow(eventNames[r],4));
+      perm.forEach(gi=>rows.push(teams[r][gi].map((idx,c)=>({f:letters[c]+(idx+1)}))));
+    }
     rows.push(null);
   });
   return {name:"Pairings", rows, widths:[20,20,20,20,44]};
@@ -1722,24 +1731,8 @@ function shWinnings(){
   const widths=[22,3]; for(let i=2;i<c;i++) widths.push(14);
   return {name:"Winnings", rows, widths, freeze:true};
 }
-function shTee(){
-  if(!TEE||!STATE) return null;
-  const data=teeSheetData();
-  if(!data) return null;
-  const plain=s=>s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
-  const rows=[];
-  data.rounds.forEach((rd,r)=>{
-    rows.push(bannerRow("Round "+(r+1)+" — "+rd.name, 2, r>0?`(starts once group ${rd.hold+1} of Round ${r} is in)`:null));
-    rd.slots.forEach((s,k)=>{
-      const note=(r>0&&s.wait>0)?`waits while ${s.wait} group${s.wait>1?"s":""} tee${s.wait>1?"":"s"} off`:"";
-      rows.push([{v:k+1},{v:plain(s.label)},note?{v:note,s:4}:null]);
-    });
-    rows.push(null);
-  });
-  return {name:"Tee Sheet", rows, widths:[5,72,34]};
-}
 function xlsxBytes(){
-  const sheets=[shPairings(),shRoomies(),shWinnings(),shTee()].filter(Boolean);
+  const sheets=[shPairings(),shRoomies(),shWinnings()].filter(Boolean);
   const RELS_NS='http://schemas.openxmlformats.org/package/2006/relationships';
   const files=[
     {name:"[Content_Types].xml", text: XMLDECL
