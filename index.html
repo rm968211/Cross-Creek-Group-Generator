@@ -568,7 +568,7 @@
 <section class="panel">
   <h2><span class="hole">&#128190;</span> Save &amp; Export</h2>
   <div class="gen-bar">
-    <button class="go" onclick="saveEverything()" title="One click, every format — the save file plus text, CSV, and a print dialog for the PDF">Save all (recommended)</button>
+    <button class="go" onclick="saveEverything()" title="One zip with the save file, text, and CSV, plus a print dialog for the PDF">Save all (recommended)</button>
   </div>
   <div class="gen-bar" style="margin-top:12px">
     <button class="toolbtn" onclick="saveAll()" title="Save everything to one file — roster, events, preferences, teams, two-man picks, and the tee sheet">Save file (.json)</button>
@@ -577,7 +577,7 @@
     <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee sheet as a plain .txt file">Download text</button>
     <button class="toolbtn" onclick="window.print()" title="Print or save as PDF — the pairings and tee sheet, print-friendly">Print / PDF</button>
   </div>
-  <p class="hint">Save all grabs everything in one go: the save file (load it later from Get Started), the text and CSV exports, and a print window for the PDF. The buttons below do each one individually.</p>
+  <p class="hint">Save all downloads one zip that unpacks into a folder &mdash; the save file (load it later from Get Started) plus the text and CSV exports &mdash; then opens a print window to save the PDF. The buttons below do each one individually.</p>
 </section>
 
 </div><!-- /view-save -->
@@ -1464,7 +1464,7 @@ function dl(filename, text, type){
   document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
 }
-function saveAll(){
+function saveData(){
   const out = {
     type: "cross-creek-save",
     roster: {A:tA.value, B:tB.value, C:tC.value, D:tD.value},
@@ -1482,7 +1482,10 @@ function saveAll(){
     out.teams = STATE.teams;
     out.locked = STATE.locked;
   }
-  dl("cross-creek.json", JSON.stringify(out,null,2), "application/json");
+  return out;
+}
+function saveAll(){
+  dl("cross-creek.json", JSON.stringify(saveData(),null,2), "application/json");
   statusEl.textContent = STATE ? "Saved — roster, preferences, and teams, all in one file."
                              : "Saved — roster and preferences (generate teams and save again to include them).";
 }
@@ -1595,8 +1598,7 @@ function downloadText(){
   if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
   dl("cross-creek-pairings.txt", resultsText(), "text/plain");
 }
-function downloadCSV(){
-  if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
+function csvContent(){
   const {cols,n,eventNames,teams} = STATE;
   let csv = "Event,Team,A,B,C,D\n";
   const esc = s => '"'+String(s).replace(/"/g,'""')+'"';
@@ -1620,15 +1622,77 @@ function downloadCSV(){
       }));
     }
   }
-  dl("cross-creek-pairings.csv", csv, "text/csv");
+  return csv;
+}
+function downloadCSV(){
+  if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
+  dl("cross-creek-pairings.csv", csvContent(), "text/csv");
+}
+
+/* ================= zip (store method, no compression) =================
+   Just enough of the ZIP format to bundle a few small text files into one
+   download that unzips into a folder — local headers + central directory. */
+let CRC_TABLE=null;
+function crc32(u8){
+  if(!CRC_TABLE){
+    CRC_TABLE=new Int32Array(256);
+    for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); CRC_TABLE[n]=c; }
+  }
+  let c=-1;
+  for(let i=0;i<u8.length;i++) c=CRC_TABLE[(c^u8[i])&0xFF]^(c>>>8);
+  return (c^-1)>>>0;
+}
+function makeZip(files){ // files: [{name, text}]
+  const enc=new TextEncoder();
+  const now=new Date();
+  const dosTime=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1);
+  const dosDate=((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
+  const chunks=[], central=[];
+  let offset=0;
+  for(const f of files){
+    const name=enc.encode(f.name), data=enc.encode(f.text), crc=crc32(data);
+    const lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); // UTF-8 names
+    lh.setUint16(8,0,true); lh.setUint16(10,dosTime,true); lh.setUint16(12,dosDate,true);
+    lh.setUint32(14,crc,true); lh.setUint32(18,data.length,true); lh.setUint32(22,data.length,true);
+    lh.setUint16(26,name.length,true); lh.setUint16(28,0,true);
+    chunks.push(new Uint8Array(lh.buffer), name, data);
+    central.push({name, crc, size:data.length, offset});
+    offset += 30+name.length+data.length;
+  }
+  const cdStart=offset;
+  for(const e of central){
+    const ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true);
+    ch.setUint16(8,0x0800,true); ch.setUint16(10,0,true);
+    ch.setUint16(12,dosTime,true); ch.setUint16(14,dosDate,true);
+    ch.setUint32(16,e.crc,true); ch.setUint32(20,e.size,true); ch.setUint32(24,e.size,true);
+    ch.setUint16(28,e.name.length,true); // extra/comment/disk/attrs stay zero
+    ch.setUint32(42,e.offset,true);
+    chunks.push(new Uint8Array(ch.buffer), e.name);
+    offset += 46+e.name.length;
+  }
+  const eocd=new DataView(new ArrayBuffer(22));
+  eocd.setUint32(0,0x06054b50,true);
+  eocd.setUint16(8,central.length,true); eocd.setUint16(10,central.length,true);
+  eocd.setUint32(12,offset-cdStart,true); eocd.setUint32(16,cdStart,true);
+  chunks.push(new Uint8Array(eocd.buffer));
+  return new Blob(chunks,{type:"application/zip"});
 }
 function saveEverything(){
-  saveAll();
-  if(!STATE){ statusEl.textContent="Saved the setup file — generate pairings to get the text, CSV, and PDF too."; return; }
-  /* stagger so each download lands before the next fires, print dialog last */
-  setTimeout(downloadText, 300);
-  setTimeout(downloadCSV, 600);
-  setTimeout(()=>{ statusEl.textContent="Saved all — file, text, and CSV downloaded; save the print window as PDF."; window.print(); }, 1100);
+  if(!STATE){ saveAll(); statusEl.textContent="Saved the setup file — generate pairings to get the full bundle."; return; }
+  const dir="cross-creek-pairings/";
+  const blob=makeZip([
+    {name:dir+"cross-creek.json", text:JSON.stringify(saveData(),null,2)},
+    {name:dir+"cross-creek-pairings.txt", text:resultsText()},
+    {name:dir+"cross-creek-pairings.csv", text:csvContent()}
+  ]);
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="cross-creek-pairings.zip";
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();}, 500);
+  statusEl.textContent="Saved all — one zip with the save file, text, and CSV; save the print window as PDF.";
+  setTimeout(()=>window.print(), 600);
 }
 
 renderTwoMan();
