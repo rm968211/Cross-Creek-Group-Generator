@@ -381,15 +381,6 @@
   }
   .udbtn:hover:not(:disabled){background:var(--fair);color:#fff;border-color:var(--fair)}
   .udbtn:disabled{opacity:.25;cursor:default}
-  .tee-times{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
-  .tee-times label{
-    font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
-    color:var(--ink-soft);display:flex;flex-direction:column;gap:5px;
-  }
-  .tee-times input{
-    font-family:Georgia,serif;font-size:15px;padding:8px 10px;
-    background:#fff;border:1px solid var(--line);border-radius:3px;color:var(--ink);width:130px;
-  }
   td.ttime{font-family:Verdana,sans-serif;font-size:11px;color:var(--ink-soft);white-space:nowrap;padding:9px 12px}
   .roll{color:var(--fair);font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.05em}
   .waitflag{color:var(--tee-red);font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.05em}
@@ -527,16 +518,11 @@
 <section class="panel">
   <h2><span class="hole">1</span> Round Order &amp; Timing</h2>
   <div id="teeOrderList"></div>
-  <div class="tee-times">
-    <label>First tee <input id="teeFirst" value="8:00 AM" oninput="renderTee()" title="When the first group of the day tees off"></label>
-    <label>Tee gap (min) <input id="teeGap" type="number" min="1" max="30" value="10" oninput="renderTee()" title="Minutes between consecutive groups off the first tee"></label>
-    <label>Round length (min) <input id="teeDur" type="number" min="60" max="420" value="270" oninput="renderTee()" title="How long 18 holes takes a group, tee to green — 270 is 4½ hours"></label>
-  </div>
   <div class="gen-bar" style="margin-top:14px">
-    <button class="go" onclick="teeOptimize()" title="Assign every group a tee slot in every round so that when players walk off 18, their next group is already due up — the fewer people the first tee waits on, the better">Optimize tee order</button>
+    <button class="go" onclick="teeOptimize()" title="Find the mathematically best tee-off order in every round — everyone rolls off 18 and straight into their next group with the least possible waiting">Optimize tee order</button>
     <span class="status" id="teeStatus"></span>
   </div>
-  <p class="hint">Arrange the day with the arrows, then optimize. The optimizer picks each round's tee-off order so that everyone in a group has already finished the previous round by the time their slot comes up &mdash; groups roll from the 18th green to the next first tee with as little standing around as possible. The tee sheet below updates live; a red note means that group is waiting on someone still out on the course.</p>
+  <p class="hint">Arrange the day with the arrows, then optimize. No clocks here &mdash; play time varies too much for that. Assuming every group plays at the same pace, the optimizer orders each round's tee-offs so that a group's slowest-to-finish member is off the course as close as possible to when their next group is due up. Waits are measured in <em>slots</em> (one slot = the space between consecutive groups off the tee): a red note means that group will be standing around; "rolls on" means they walk off 18 and straight to the tee.</p>
 </section>
 
 <div id="teeSheet"></div>
@@ -1177,27 +1163,10 @@ function teeSync(){
   else if(TEE.hash!==hash){ TEE.hash=hash; TEE.optimized=false; } // groups changed under us
   return defs;
 }
-function teeParseFirst(){
-  const m=(document.getElementById("teeFirst").value||"").match(/(\d{1,2})[:.](\d{2})\s*(am|pm)?/i);
-  if(!m) return 8*60;
-  let h=+m[1]%24; const mm=+m[2]%60;
-  const ap=(m[3]||"").toLowerCase();
-  if(ap==="pm"&&h<12)h+=12; if(ap==="am"&&h===12)h=0;
-  return h*60+mm;
-}
-function fmtT(min){
-  min=((min%1440)+1440)%1440;
-  let h=Math.floor(min/60); const m=min%60;
-  const ap=h>=12?"PM":"AM"; h=h%12||12;
-  return h+":"+String(m).padStart(2,"0")+" "+ap;
-}
 function teeSheetData(defs){
   defs = defs || teeSync();
   if(!defs.length) return null;
   const ordered = TEE.seq.map(k=>defs.find(d=>d.key===k));
-  const gap=Math.max(1,+document.getElementById("teeGap").value||10);
-  const dur=Math.max(30,+document.getElementById("teeDur").value||270);
-  let start=teeParseFirst();
   const rounds=[]; let prevPos=null, totalWait=0, totalHold=0;
   for(let r=0;r<ordered.length;r++){
     const d=ordered[r], perm=TEE.perm[d.key];
@@ -1209,21 +1178,20 @@ function teeSheetData(defs){
       if(r>0 && mp-k>maxLate) maxLate=mp-k;
       slots.push({gi:perm[k], mp, offs:[...offs].sort((a,b)=>a-b)});
     }
-    const hold = r>0 ? maxLate*gap : 0;
-    if(r>0){ start += dur + hold; totalHold += hold; }
+    const hold = r>0 ? maxLate : 0; // slots the whole round is pushed back at the turn
+    totalHold += hold;
     for(let k=0;k<slots.length;k++){
       const s=slots[k];
-      s.time = start + k*gap;
-      s.wait = (r===0||s.mp<0) ? 0 : (maxLate + k - s.mp)*gap;
+      s.wait = (r===0||s.mp<0) ? 0 : maxLate + k - s.mp; // slots this group stands around
       if(r>0 && s.mp>=0) totalWait += s.wait;
       s.label = d.groups[s.gi].label;
     }
-    rounds.push({name:d.name, key:d.key, start, hold, slots});
+    rounds.push({name:d.name, key:d.key, hold, slots});
     const pp=new Map();
     for(let k=0;k<perm.length;k++) for(const c of d.groups[perm[k]].codes) pp.set(c,k);
     prevPos=pp;
   }
-  return {rounds, totalWait, totalHold, gap, dur};
+  return {rounds, totalWait, totalHold};
 }
 function teeMove(i,dir){
   const j=i+dir;
@@ -1278,7 +1246,7 @@ function teeOptimize(){
     }
   }
   let best=null, bestCost=Infinity;
-  for(let rs=0;rs<4000;rs++){
+  for(let rs=0;rs<20000;rs++){
     const perms=groupsCodes.map(gs=>{
       const p=gs.map((_,i)=>i);
       for(let i=p.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[p[i],p[j]]=[p[j],p[i]];}
@@ -1288,18 +1256,21 @@ function teeOptimize(){
     const c=cost(perms);
     if(c<bestCost){ bestCost=c; best=perms.map(p=>p.slice()); }
   }
-  /* short polish: nudge slots the greedy sweep can't reach */
-  const perms=best.map(p=>p.slice());
-  let cur=bestCost;
-  for(let it=0;it<10000;it++){
-    const r=Math.random()*R|0, perm=perms[r];
-    if(perm.length<2) continue;
-    const i=Math.random()*perm.length|0; let j=Math.random()*perm.length|0; if(i===j) j=(j+1)%perm.length;
-    [perm[i],perm[j]]=[perm[j],perm[i]];
-    const nc=cost(perms);
-    if(nc<=cur) cur=nc;
-    else [perm[i],perm[j]]=[perm[j],perm[i]];
-    if(cur<bestCost){ bestCost=cur; best=perms.map(p=>p.slice()); }
+  /* polish: plateau-walking swap search from the best sweep result, restarted
+     several times to escape equal-cost plains the greedy family can't cross */
+  for(let pr=0;pr<4;pr++){
+    const perms=best.map(p=>p.slice());
+    let cur=bestCost;
+    for(let it=0;it<15000;it++){
+      const r=Math.random()*R|0, perm=perms[r];
+      if(perm.length<2) continue;
+      const i=Math.random()*perm.length|0; let j=Math.random()*perm.length|0; if(i===j) j=(j+1)%perm.length;
+      [perm[i],perm[j]]=[perm[j],perm[i]];
+      const nc=cost(perms);
+      if(nc<=cur) cur=nc;
+      else [perm[i],perm[j]]=[perm[j],perm[i]];
+      if(cur<bestCost){ bestCost=cur; best=perms.map(p=>p.slice()); }
+    }
   }
   TEE.seq.forEach((k,r)=>{ TEE.perm[k]=best[r]; });
   TEE.optimized=true;
@@ -1325,18 +1296,18 @@ function renderTee(){
   const data=teeSheetData(defs);
   let html="";
   data.rounds.forEach((rd,r)=>{
-    html+=`<div class="event-card"><div class="ehead"><h3>Round ${r+1} &mdash; ${rd.name}</h3><span>first tee ${fmtT(rd.start)}${r>0?(rd.hold>0?` &middot; held ${rd.hold} min for the turn`:" &middot; rolls straight over"):""}</span></div>
-      <div class="table-scroll"><table><thead><tr><th></th><th>Tee Time</th><th>Group</th>${r>0?'<th>Coming Off</th>':''}</tr></thead><tbody>`;
+    html+=`<div class="event-card"><div class="ehead"><h3>Round ${r+1} &mdash; ${rd.name}</h3><span>${r>0?(rd.hold>0?`pushed back ${rd.hold} slot${rd.hold>1?"s":""} at the turn`:"rolls straight over"):"tee-off order"}</span></div>
+      <div class="table-scroll"><table><thead><tr><th></th><th>Group</th>${r>0?'<th>Coming Off</th>':''}</tr></thead><tbody>`;
     rd.slots.forEach((s,k)=>{
-      html+=`<tr><td class="tno">${k+1}</td><td class="ttime">${fmtT(s.time)}</td><td><span class="cell2">${s.label}</span></td>${
-        r>0 ? `<td class="ttime">${s.mp<0?"&mdash;":`slots ${s.offs.join(", ")} &nbsp;${s.wait>0?`<span class="waitflag" title="This group is ready ${s.wait} minutes before its slot — they'll be waiting on the box">~${s.wait} min wait</span>`:`<span class="roll" title="Everyone in this group is off the course right when their slot comes up">rolls on</span>`}`}</td>` : ""
+      html+=`<tr><td class="tno">${k+1}</td><td><span class="cell2">${s.label}</span></td>${
+        r>0 ? `<td class="ttime">${s.mp<0?"&mdash;":`slots ${s.offs.join(", ")} &nbsp;${s.wait>0?`<span class="waitflag" title="This group is done ${s.wait} slot${s.wait>1?"s":""} before their turn to tee off — they'll be standing around">~${s.wait} slot${s.wait>1?"s":""} of waiting</span>`:`<span class="roll" title="This group's last man walks off the course right as their slot comes up">rolls on</span>`}`}</td>` : ""
       }</tr>`;
     });
     html+=`</tbody></table></div></div>`;
   });
   sheet.innerHTML=html;
   st.textContent = TEE.optimized
-    ? `Optimized — first tees held ${data.totalHold} min total, ${data.totalWait} group-minutes of waiting across the day.`
+    ? `Optimized — field pushed back ${data.totalHold} slots total, ${data.totalWait} group-slots of waiting across the day.`
     : `Using the order as listed — hit Optimize to tighten the turnarounds.`;
 }
 
@@ -1359,10 +1330,7 @@ function saveAll(){
     rankWeight: +document.getElementById("rankBalance").value,
     twoMan: { name: TWOMAN.name, groups: TWOMAN.groups }
   };
-  if(TEE) out.tee = { seq: TEE.seq, perm: TEE.perm, optimized: TEE.optimized,
-    firstTee: document.getElementById("teeFirst").value,
-    gap: document.getElementById("teeGap").value,
-    dur: document.getElementById("teeDur").value };
+  if(TEE) out.tee = { seq: TEE.seq, perm: TEE.perm, optimized: TEE.optimized };
   if(STATE){
     out.roster = {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")};
     out.events = STATE.eventNames;
@@ -1395,9 +1363,6 @@ function applySetup(s){
     TEE = { seq: s.tee.seq.filter(k=>typeof k==="string"), perm:{}, optimized: !!s.tee.optimized, hash: null };
     if(s.tee.perm && typeof s.tee.perm==="object")
       for(const k in s.tee.perm) if(Array.isArray(s.tee.perm[k])) TEE.perm[k]=s.tee.perm[k].map(Number);
-    if(s.tee.firstTee) document.getElementById("teeFirst").value = s.tee.firstTee;
-    if(s.tee.gap) document.getElementById("teeGap").value = s.tee.gap;
-    if(s.tee.dur) document.getElementById("teeDur").value = s.tee.dur;
   } else {
     TEE = null;
   }
@@ -1462,10 +1427,10 @@ function resultsText(){
       const plain = s => s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
       out += "\nTEE SHEET\n---------\n";
       data.rounds.forEach((rd,r)=>{
-        out += "Round "+(r+1)+" — "+rd.name+" (first tee "+fmtT(rd.start)
-             + (r>0 ? (rd.hold>0 ? ", held "+rd.hold+" min for the turn" : ", rolls straight over") : "")+")\n";
+        out += "Round "+(r+1)+" — "+rd.name
+             + (r>0 ? (rd.hold>0 ? " (pushed back "+rd.hold+" slot"+(rd.hold>1?"s":"")+" at the turn)" : " (rolls straight over)") : "")+"\n";
         rd.slots.forEach((s,k)=>{
-          out += "  "+fmtT(s.time)+"  "+plain(s.label)+(r>0&&s.wait>0?"  [~"+s.wait+" min wait]":"")+"\n";
+          out += "  "+(k+1)+".  "+plain(s.label)+(r>0&&s.wait>0?"  [~"+s.wait+" slot"+(s.wait>1?"s":"")+" of waiting]":"")+"\n";
         });
         out += "\n";
       });
@@ -1502,9 +1467,9 @@ function downloadCSV(){
     const data = teeSheetData();
     if(data){
       const plain = s => s.replace(/&nbsp;|&mdash;/g, m=>m==="&mdash;"?"—":" ");
-      csv += "\nRound,Event,Slot,Tee Time,Group,Wait (min)\n";
+      csv += "\nRound,Event,Slot,Group,Wait (slots)\n";
       data.rounds.forEach((rd,r)=>rd.slots.forEach((s,k)=>{
-        csv += [r+1, esc(rd.name), k+1, esc(fmtT(s.time)), esc(plain(s.label)), r>0?s.wait:0].join(",")+"\n";
+        csv += [r+1, esc(rd.name), k+1, esc(plain(s.label)), r>0?s.wait:0].join(",")+"\n";
       }));
     }
   }
