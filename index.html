@@ -433,7 +433,7 @@
   <button class="tab" data-view="save" onclick="showView('save')" title="Save the pairing and export it every way it comes">Save &amp; Export</button>
 </nav>
 
-<input type="file" id="loadFile" accept=".json" style="display:none" onchange="loadAll(this)">
+<input type="file" id="loadFile" accept=".json,.xlsx" style="display:none" onchange="loadAll(this)">
 
 <div id="view-start">
 <section class="panel">
@@ -1622,12 +1622,88 @@ function applySetup(s){
   renderTwoMan();
   renderRoomies();
 }
+/* ================= reading a workbook back =================
+   The save data lives in a veryHidden sheet. Our own exports are stored
+   (uncompressed); a copy re-saved by Excel comes back deflated with the
+   text moved into sharedStrings — handle both, no libraries. */
+function unzipEntries(u8){ // name -> {method, data} from the central directory
+  const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  let e=-1;
+  for(let i=u8.length-22;i>=0 && i>u8.length-22-65558;i--){
+    if(dv.getUint32(i,true)===0x06054b50){ e=i; break; }
+  }
+  if(e<0) return null;
+  const count=dv.getUint16(e+10,true);
+  const files={};
+  let p=dv.getUint32(e+16,true);
+  for(let k=0;k<count;k++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true),
+          nlen=dv.getUint16(p+28,true), elen=dv.getUint16(p+30,true), clen=dv.getUint16(p+32,true),
+          lho=dv.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nlen));
+    const start=lho+30+dv.getUint16(lho+26,true)+dv.getUint16(lho+28,true);
+    files[name]={method, data:u8.subarray(start,start+csize)};
+    p+=46+nlen+elen+clen;
+  }
+  return files;
+}
+async function zipEntryText(entry){
+  if(!entry) return null;
+  if(entry.method===0) return new TextDecoder().decode(entry.data);
+  if(entry.method===8){
+    const stream=new Blob([entry.data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+  }
+  return null;
+}
+function xmlUnesc(s){
+  return s.replace(/&(#x?[0-9a-fA-F]+|amp|lt|gt|quot|apos);/g,(m,g)=>{
+    if(g==="amp") return "&"; if(g==="lt") return "<"; if(g==="gt") return ">";
+    if(g==="quot") return '"'; if(g==="apos") return "'";
+    return String.fromCodePoint(g[1]==="x"||g[1]==="X" ? parseInt(g.slice(2),16) : parseInt(g.slice(1),10));
+  });
+}
+async function xlsxSaveData(u8){ // the parsed save object, or null if none is inside
+  const files=unzipEntries(u8);
+  if(!files) return null;
+  let shared=null;
+  const sstXml=await zipEntryText(files["xl/sharedStrings.xml"]);
+  if(sstXml){
+    shared=(sstXml.match(/<si[ >][\s\S]*?<\/si>|<si\/>/g)||[]).map(si=>
+      (si.match(/<t[^>]*>[\s\S]*?<\/t>/g)||[]).map(t=>xmlUnesc(t.replace(/^<t[^>]*>/,"").replace(/<\/t>$/,""))).join(""));
+  }
+  for(const name in files){
+    if(!/^xl\/worksheets\/sheet\d+\.xml$/.test(name)) continue;
+    const xml=await zipEntryText(files[name]);
+    if(!xml) continue;
+    let text="";
+    for(const c of xml.match(/<c [^>]*[^\/]>[\s\S]*?<\/c>/g)||[]){
+      if(/t="inlineStr"/.test(c)){
+        const m=c.match(/<t[^>]*>([\s\S]*?)<\/t>/);
+        if(m) text+=xmlUnesc(m[1]);
+      } else if(/t="s"/.test(c) && shared){
+        const m=c.match(/<v>(\d+)<\/v>/);
+        if(m && shared[+m[1]]!==undefined) text+=shared[+m[1]];
+      }
+    }
+    text=text.trim();
+    if(text.startsWith('{"type":"cross-creek-save"')){
+      try{ return JSON.parse(text); }catch(e){}
+    }
+  }
+  return null;
+}
 function loadAll(inp){
   const f = inp.files[0]; if(!f) return;
   const rd = new FileReader();
-  rd.onload = () => {
+  rd.onload = async () => {
     try{
-      const s = JSON.parse(rd.result);
+      const u8 = new Uint8Array(rd.result);
+      const s = (u8[0]===0x50 && u8[1]===0x4b)
+        ? await xlsxSaveData(u8)
+        : JSON.parse(new TextDecoder().decode(u8));
+      if(!s || s.type!=="cross-creek-save") throw new Error("no save");
       applySetup(s);
       if(s.teams){
         const cols = roster();
@@ -1653,7 +1729,7 @@ function loadAll(inp){
       showView("main");
     }catch(e){ statusEl.textContent = "That file didn't look like a Cross Creek save."; showView("main"); }
   };
-  rd.readAsText(f); inp.value="";
+  rd.readAsArrayBuffer(f); inp.value="";
 }
 
 /* ================= exports ================= */
@@ -1843,8 +1919,15 @@ function shWinnings(){
   const widths=[22,3]; for(let i=2;i<c;i++) widths.push(14);
   return {name:"Winnings", rows, widths, freeze:true};
 }
+function shSave(){ // the whole save file rides along in a veryHidden sheet, chunked to fit cells
+  const json=JSON.stringify(saveData());
+  const rows=[];
+  for(let i=0;i<json.length;i+=30000) rows.push([{v:json.slice(i,i+30000)}]);
+  return {name:"_save", rows, hidden:true};
+}
 function xlsxBytes(){
   const sheets=[shRoomies(),shRankings(),shPairings(),shWinnings()].filter(Boolean);
+  sheets.push(shSave());
   const RELS_NS='http://schemas.openxmlformats.org/package/2006/relationships';
   const files=[
     {name:"[Content_Types].xml", text: XMLDECL
@@ -1859,7 +1942,7 @@ function xlsxBytes(){
       +`<Relationships xmlns="${RELS_NS}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
     {name:"xl/workbook.xml", text: XMLDECL
       +`<workbook xmlns="${SS_NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>`
-      +sheets.map((sh,i)=>`<sheet name="${xmlEsc(sh.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")
+      +sheets.map((sh,i)=>`<sheet name="${xmlEsc(sh.name)}" sheetId="${i+1}"${sh.hidden?' state="veryHidden"':''} r:id="rId${i+1}"/>`).join("")
       +'</sheets><calcPr fullCalcOnLoad="1"/></workbook>'},
     {name:"xl/_rels/workbook.xml.rels", text: XMLDECL
       +`<Relationships xmlns="${RELS_NS}">`
