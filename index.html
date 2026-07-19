@@ -310,12 +310,60 @@
   @media(max-width:760px){.tm-group{grid-template-columns:1fr}.tm-teams{grid-template-columns:1fr}}
   .tm-team{display:flex;align-items:center;gap:8px;min-width:0}
   .tm-tno{font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.05em;color:var(--ink-soft);flex:0 0 24px}
-  .tm-team select{
-    flex:1 1 auto;min-width:0;
-    font-family:Georgia,serif;font-size:14px;padding:8px;
-    background:#fff;border:1px solid var(--line);border-radius:3px;color:var(--ink);
+
+  .tm-pool{
+    position:sticky;top:8px;z-index:5;
+    background:var(--card);border:1px solid var(--line);border-radius:4px;
+    padding:12px 14px;margin-bottom:14px;
+    box-shadow:0 3px 10px rgba(30,58,47,.12);
   }
-  .tm-team select.bad{border-color:var(--tee-red);outline:1px solid var(--tee-red)}
+  .tm-pool-head{
+    display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;
+    font-family:Verdana,sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--fair);border-bottom:1px solid var(--line);
+    padding-bottom:8px;margin-bottom:10px;
+  }
+  .tm-pool-head .tm-next{color:var(--gold);letter-spacing:.05em;text-transform:none;font-size:12px}
+  .tm-pool-cols{display:grid;grid-template-columns:repeat(4,1fr);gap:0 10px}
+  @media(max-width:760px){.tm-pool-cols{grid-template-columns:repeat(2,1fr)}}
+  .tm-pool-tier{
+    font-family:Verdana,sans-serif;font-size:10px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--ink-soft);margin-bottom:6px;
+  }
+  .tm-pool-tier b{color:var(--tee-red)}
+  .chip{
+    display:block;width:100%;text-align:left;
+    font-family:Georgia,serif;font-size:13px;color:var(--ink);
+    background:#fff;border:1px solid var(--line);border-radius:3px;
+    padding:6px 9px;margin-bottom:6px;cursor:pointer;
+    overflow-wrap:anywhere;
+  }
+  .chip:hover{border-color:var(--fair);background:rgba(47,107,69,.08)}
+  .chip.risk{border-color:var(--tee-red);background:#fbeaea}
+  .chip.risk:hover{background:#f6d9d6}
+
+  .tm-slot{
+    flex:1 1 auto;min-width:0;text-align:left;
+    font-family:Georgia,serif;font-size:14px;color:var(--ink);
+    background:#fff;border:1px solid var(--line);border-radius:3px;
+    padding:8px 10px;cursor:pointer;
+    overflow-wrap:anywhere;
+    display:flex;align-items:center;gap:6px;
+  }
+  .tm-slot .nm{flex:1 1 auto;min-width:0}
+  .tm-slot .x{flex:0 0 auto;color:var(--tee-red);font-family:Verdana,sans-serif;font-size:13px;opacity:.35}
+  .tm-slot:hover .x{opacity:1}
+  .tm-slot:hover{border-color:var(--tee-red);background:rgba(178,58,47,.06)}
+  .tm-slot.empty{
+    border-style:dashed;color:var(--ink-soft);font-style:italic;justify-content:center;
+  }
+  .tm-slot.empty:hover{border-color:var(--fair);color:var(--fair);background:rgba(47,107,69,.08)}
+  .tm-slot.empty.sel{
+    background:var(--gold);border-color:var(--gold);border-style:solid;
+    color:#fff;font-style:normal;
+  }
+  .tm-slot.rep .nm{text-decoration:underline dotted var(--tee-red) 2px;text-underline-offset:3px}
+  .tm-slot.dup{border-color:var(--tee-red);outline:1px solid var(--tee-red)}
   .cell2{display:block;width:100%;padding:9px 12px;overflow-wrap:anywhere;word-break:break-word}
   @media(max-width:480px){.cell2{padding:7px 8px;font-size:13px}}
   td.teamsplit{border-left:2px solid var(--line)}
@@ -438,7 +486,7 @@
     <input id="tmName" value="Two-Man Scramble" oninput="TWOMAN.name=this.value; if(STATE) renderState(false);" title="Rename the two-man event — this name shows on the team sheet and in the exports">
   </div>
   <div id="tmGroups"></div>
-  <p class="hint">Hand-pick every team &mdash; there's no solver here. Each group is the foursome that tees off together: two two-man teams sharing a cart path. The collision check below compares each group of four against the four-man events &mdash; anyone who already shared a foursome over there gets flagged, teammates or not.</p>
+  <p class="hint">Hand-pick every team &mdash; there's no solver here. Click a player in the pool to drop them into the next open slot (or click an open slot first to aim the pick). Click a placed player to send them back to the pool. Each group is the foursome that tees off together: two two-man teams sharing a cart path. Pool players shaded red would collide with the group you're filling &mdash; they already shared a foursome in the four-man events with someone in it, teammates or not.</p>
 </section>
 
 <section class="panel">
@@ -884,10 +932,40 @@ function syncTwoManSize(){
   while(TWOMAN.groups.length<n) TWOMAN.groups.push([["",""],["",""]]);
   if(TWOMAN.groups.length>n) TWOMAN.groups.length=n;
 }
-function tmPick(g,tt,s,v){
-  TWOMAN.groups[g][tt][s]=v;
+let TMSEL = null; // aimed open slot {g,tt,s} — next pool click lands here
+function tmSelect(g,tt,s){
+  TMSEL = (TMSEL && TMSEL.g===g && TMSEL.tt===tt && TMSEL.s===s) ? null : {g,tt,s};
+  renderTwoMan();
+}
+function tmActiveSlot(){
+  if(TMSEL && TWOMAN.groups[TMSEL.g] && !TWOMAN.groups[TMSEL.g][TMSEL.tt][TMSEL.s]) return TMSEL;
+  for(let g=0;g<TWOMAN.groups.length;g++) for(let tt=0;tt<2;tt++) for(let s=0;s<2;s++)
+    if(!TWOMAN.groups[g][tt][s]) return {g,tt,s};
+  return null;
+}
+function tmAssign(nm){
+  const tgt = tmActiveSlot();
+  if(!tgt) return;
+  TWOMAN.groups[tgt.g][tgt.tt][tgt.s]=nm;
+  TMSEL=null;
   renderTwoMan();
   if(STATE) renderState(false);
+}
+function tmClear(g,tt,s){
+  TWOMAN.groups[g][tt][s]="";
+  renderTwoMan();
+  if(STATE) renderState(false);
+}
+/* pair keys from the generated four-man events only */
+function fourManSeen(){
+  const set = new Set();
+  if(!STATE) return set;
+  const {teams,n} = STATE;
+  for(let r=0;r<teams.length;r++) for(let t=0;t<n;t++){
+    const team=teams[r][t];
+    for(let i=0;i<4;i++) for(let j=i+1;j<4;j++) set.add(i*100+team[i]+"|"+(j*100+team[j]));
+  }
+  return set;
 }
 function showView(v){
   document.getElementById("view-main").hidden = (v!=="main");
@@ -900,34 +978,69 @@ function renderTwoMan(){
   if(!box) return;
   syncTwoManSize();
   const players = allPlayers();
+  const pinfo = new Map(players.map(p=>[p.n, p.t+p.rank]));
   const used = new Map(); // name -> ["Group 1 / T1", ...]
   TWOMAN.groups.forEach((grp,g)=>grp.forEach((team,tt)=>team.forEach(nm=>{
     if(!nm) return;
     if(!used.has(nm)) used.set(nm,[]);
     used.get(nm).push("Group "+(g+1)+" / T"+(g*2+tt+1));
   })));
+  if(TMSEL && (TMSEL.g>=TWOMAN.groups.length || TWOMAN.groups[TMSEL.g][TMSEL.tt][TMSEL.s])) TMSEL=null;
+  const active = tmActiveSlot();
   const an = (STATE && twoManHasPicks()) ? analyze() : null;
-  let html="";
-  if(TWOMAN.groups.length===0) html = `<p class="muted">Add players to the roster first &mdash; the groups build themselves from it.</p>`;
+
+  /* pool players who'd collide with the group the next pick lands in */
+  const seen4 = fourManSeen();
+  const findCode = nm=>{ if(!STATE) return null; for(let c=0;c<4;c++){const i=STATE.cols[c].indexOf(nm); if(i>=0) return c*100+i;} return null; };
+  const risky = new Set();
+  if(active && STATE){
+    const members = [];
+    TWOMAN.groups[active.g].forEach(team=>team.forEach(nm=>{ const code=nm?findCode(nm):null; if(code!==null) members.push(code); }));
+    for(const p of players){
+      if(used.has(p.n)) continue;
+      const code = findCode(p.n); if(code===null) continue;
+      for(const m of members){ if(seen4.has(Math.min(code,m)+"|"+Math.max(code,m))){ risky.add(p.n); break; } }
+    }
+  }
+
+  const remaining = players.filter(p=>!used.has(p.n));
+  const aim = active ? `Group ${active.g+1}, T${active.g*2+active.tt+1}` : "";
+  let html = `<div class="tm-pool">
+    <div class="tm-pool-head"><span>The Pool &mdash; ${remaining.length} left</span>
+    <span class="tm-next">${active ? (remaining.length ? "next pick &rarr; "+aim : "pool's empty") : (remaining.length ? "no open slots" : "everyone's picked")}</span></div>
+    <div class="tm-pool-cols">`;
+  for(const L of letters){
+    const col = remaining.filter(p=>p.t===L);
+    html+=`<div><div class="tm-pool-tier"><b>${L}</b> players</div>`;
+    html+=col.map(p=>{
+      const r = risky.has(p.n);
+      const tip = r ? "Heads up — already shared a foursome with someone in "+aim.split(",")[0]+" during the four-man events"
+                    : (active ? "Click to drop into "+aim : "No open slot to drop into");
+      return `<button class="chip${r?' risk':''}" onclick="tmAssign('${p.n.replace(/'/g,"\\'")}')" title="${tip}">${p.n} <span class="rtag">${p.t}${p.rank}</span>${r?' <span class="warn">&#9888;</span>':''}</button>`;
+    }).join("") || `<p class="muted" style="font-size:12px;margin-bottom:6px">all picked</p>`;
+    html+=`</div>`;
+  }
+  html+=`</div></div>`;
+
+  if(TWOMAN.groups.length===0) html += `<p class="muted">Add players to the roster first &mdash; the groups build themselves from it.</p>`;
   for(let g=0; g<TWOMAN.groups.length; g++){
     html+=`<div class="tm-group"><div class="tm-glabel">Group ${g+1}</div><div class="tm-teams">`;
     for(let tt=0;tt<2;tt++){
       html+=`<div class="tm-team"><span class="tm-tno">T${g*2+tt+1}</span>`;
       for(let s=0;s<2;s++){
-        const val = TWOMAN.groups[g][tt][s];
-        const dup = !!val && used.get(val).length>1;
-        const col = !!an && an.tmRepCells.has(g+"|"+tt+"|"+s);
-        let opts = `<option value="">&mdash;</option>`, found=false;
-        for(const p of players){
-          const taken = used.has(p.n) && p.n!==val;
-          if(p.n===val) found=true;
-          opts+=`<option value="${p.n}" ${p.n===val?"selected":""}>${p.n} (${p.t}${p.rank})${taken?" &middot; picked":""}</option>`;
+        const nm = TWOMAN.groups[g][tt][s];
+        if(nm){
+          const col = !!an && an.tmRepCells.has(g+"|"+tt+"|"+s);
+          const dup = used.get(nm).length>1;
+          const tag = pinfo.has(nm) ? `<span class="rtag">${pinfo.get(nm)}</span>` : `<span class="rtag">not on roster</span>`;
+          const tip = col ? "Collision — already shared a foursome with someone in this group. Click to send back to the pool."
+            : dup ? "Picked more than once — see the roster check below. Click to send back to the pool."
+            : "Click to send back to the pool";
+          html+=`<button class="tm-slot${col?' rep':''}${dup?' dup':''}" onclick="tmClear(${g},${tt},${s})" title="${tip}"><span class="nm">${nm} ${tag}${col?' <span class="warn">&#9888;</span>':''}</span><span class="x">&times;</span></button>`;
+        } else {
+          const isActive = !!active && active.g===g && active.tt===tt && active.s===s;
+          html+=`<button class="tm-slot empty${isActive?' sel':''}" onclick="tmSelect(${g},${tt},${s})" title="${isActive?'Next pool click lands here — click to un-aim':'Click to aim the next pool pick here'}">${isActive?'picking&hellip;':'open'}</button>`;
         }
-        if(val && !found) opts+=`<option value="${val}" selected>${val} (not on roster)</option>`;
-        const tip = col ? "Collision — this player already shared a foursome with someone in this group"
-          : dup ? "This player is picked more than once — see the roster check below"
-          : "Pick a player — • picked means they're already on a team";
-        html+=`<select class="${(dup||col)?'bad':''}" onchange="tmPick(${g},${tt},${s},this.value)" title="${tip}">${opts}</select>`;
         if(s===0) html+=`<span class="amp">&amp;</span>`;
       }
       html+=`</div>`;
@@ -936,7 +1049,7 @@ function renderTwoMan(){
   }
   box.innerHTML = html;
 
-  const unpicked = players.filter(p=>!used.has(p.n)).map(p=>`${p.n} (${p.t}${p.rank})`);
+  const unpicked = remaining.map(p=>`${p.n} (${p.t}${p.rank})`);
   const dups = [...used.entries()].filter(([nm,v])=>v.length>1)
     .map(([nm,v])=>`<li><span class="bad">${nm}</span> is picked ${v.length} times &mdash; ${v.join(", ")}</li>`);
   let collHtml;
@@ -958,7 +1071,7 @@ function renderTwoMan(){
     <div class="rbox"><h4>Collisions vs the four-man events</h4>${collHtml}</div>
     <div class="rbox"><h4>Roster check</h4>
       ${dups.length?`<ul>${dups.join("")}</ul>`:""}
-      ${unpicked.length?`<p><span class="muted">Still unpicked (${unpicked.length}):</span> ${unpicked.join(", ")}</p>`:(dups.length?"":`<p class="ok">Everyone is on a team, no doubles.</p>`)}
+      ${unpicked.length?`<p class="muted">${unpicked.length} still in the pool &mdash; pick 'em above.</p>`:(dups.length?"":`<p class="ok">Everyone is on a team, no doubles.</p>`)}
     </div>
   </div>`;
 }
