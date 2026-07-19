@@ -1572,7 +1572,7 @@ function saveData(){
     twoMan: { name: TWOMAN.name, groups: TWOMAN.groups },
     roomies: { rooms: ROOMIES.rooms }
   };
-  if(TEE) out.tee = { seq: TEE.seq, perm: TEE.perm, optimized: TEE.optimized, lead: TEE.lead };
+  if(TEE) out.tee = { seq: TEE.seq, perm: TEE.perm, optimized: TEE.optimized, lead: TEE.lead, ranking: TEE.ranking };
   if(STATE){
     out.roster = {A:STATE.cols[0].join("\n"), B:STATE.cols[1].join("\n"), C:STATE.cols[2].join("\n"), D:STATE.cols[3].join("\n")};
     out.events = STATE.eventNames;
@@ -1615,6 +1615,13 @@ function applySetup(s){
             ranking: null, lead: Number.isInteger(s.tee.lead) ? s.tee.lead : null };
     if(s.tee.perm && typeof s.tee.perm==="object")
       for(const k in s.tee.perm) if(Array.isArray(s.tee.perm[k])) TEE.perm[k]=s.tee.perm[k].map(Number);
+    if(Array.isArray(s.tee.ranking)){
+      const ranking = s.tee.ranking
+        .filter(e=>e && Number.isInteger(e.gi) && Array.isArray(e.perms))
+        .map(e=>({gi:e.gi, hold:+e.hold||0, wait:+e.wait||0, cost:+e.cost||0,
+                  perms:e.perms.map(p=>Array.isArray(p)?p.map(Number):[])}));
+      if(ranking.length) TEE.ranking = ranking;
+    }
   } else {
     TEE = null;
   }
