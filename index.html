@@ -726,6 +726,9 @@
       <span class="info" title="The Winnings sheet is a money grid — every player down the side, a column per event, with running subtotals per day. Most years it's tracked on paper instead, so it saves as a hidden sheet — right-click any sheet tab in Excel and pick Unhide to bring it out. Untick this to have it showing from the start.">i</span>
     </label>
   </div>
+  <div class="gen-bar" style="margin-top:12px">
+    <button class="go" onclick="printPDF()" title="A print-ready document — the Cross Creek logo up top, then Roomies, Rankings, and the pairings day by day. Save as PDF from the print dialog">Save formatted PDF</button>
+  </div>
   <details class="adv">
     <summary>Advanced</summary>
     <div class="gen-bar" style="margin-top:12px">
@@ -733,7 +736,6 @@
       <button class="toolbtn" onclick="saveAll()" title="Save everything to one .json file — roster, events, preferences, teams, two-man picks, roommates, and the tee order">Save file (.json)</button>
       <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee order as plain text — paste into a group chat or email">Copy as text</button>
       <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee order as a plain .txt file">Download text</button>
-      <button class="toolbtn" onclick="printPDF()" title="A print-ready document — the Cross Creek logo up top, then Roomies, Rankings, and the pairings day by day. Save as PDF from the print dialog">Print / PDF</button>
     </div>
   </details>
 </section>
