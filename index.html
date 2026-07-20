@@ -716,6 +716,11 @@
       <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee order as plain text — paste into a group chat or email">Copy as text</button>
       <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee order as a plain .txt file">Download text</button>
     </div>
+    <div class="gen-bar" style="margin-top:12px">
+      <button class="toolbtn" onclick="exportPrefs()">Export preferences</button>
+      <button class="toolbtn" onclick="confirmImportPrefs()">Import preferences</button>
+      <input type="file" id="prefsFile" accept=".json" style="display:none" onchange="importPrefs(this)">
+    </div>
   </details>
 </section>
 
@@ -1817,6 +1822,33 @@ function saveAll(){
   dl("cross-creek.json", JSON.stringify(saveData(),null,2), "application/json");
   statusEl.textContent = STATE ? "Saved — roster, preferences, and teams, all in one file."
                              : "Saved — roster and preferences (generate teams and save again to include them).";
+}
+function exportPrefs(){
+  const prefs = [...document.querySelectorAll(".pref-row")].map(r=>({
+    a:r.querySelector(".p1").value, b:r.querySelector(".p2").value,
+    w:+r.querySelector("input[type=range]").value }));
+  dl("cross-creek-preferences.json", JSON.stringify({type:"cross-creek-prefs", prefs}, null, 2), "application/json");
+  statusEl.textContent = "Saved — preferences exported to their own file.";
+}
+function confirmImportPrefs(){
+  if(document.querySelector(".pref-row") && !confirm("Import preferences? Your current preferences will be replaced.\n\nIf you want to keep them, hit Cancel and export them first.")) return;
+  prefsFile.click();
+}
+function importPrefs(inp){
+  const f = inp.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{
+      const s = JSON.parse(rd.result);
+      if(!s || s.type!=="cross-creek-prefs" || !Array.isArray(s.prefs)) throw new Error("no prefs");
+      document.getElementById("prefs").innerHTML=""; prefCount=0;
+      s.prefs.forEach(p=>addPref(p.a,p.b,p.w));
+      if(STATE) renderState();
+      persistNow();
+      statusEl.textContent = "Loaded — preferences replaced.";
+    }catch(e){ statusEl.textContent = "That file didn't look like a Cross Creek preferences file."; }
+  };
+  rd.readAsText(f); inp.value="";
 }
 function applySetup(s){
   if(s.roster){ tA.value=s.roster.A||""; tB.value=s.roster.B||""; tC.value=s.roster.C||""; tD.value=s.roster.D||""; }
