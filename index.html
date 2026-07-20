@@ -118,6 +118,23 @@
     margin-top:12px;
   }
   .err-note.show{display:block}
+  .resume-note{
+    background:rgba(47,107,69,.08);
+    border:1px solid var(--fair); border-left:4px solid var(--fair);
+    border-radius:3px;
+    padding:12px 16px;
+    font-size:14px; color:var(--fair);
+    margin-bottom:16px;
+  }
+  .resume-note a{color:var(--fair); font-weight:bold}
+  .start-warn{
+    background:rgba(168,132,60,.08);
+    border:1px dashed var(--gold);
+    border-radius:3px;
+    padding:10px 14px;
+    font-size:13px; font-style:italic; color:var(--ink-soft);
+    margin-top:16px;
+  }
   textarea{
     width:100%; min-height:172px;
     font-family: Georgia, serif; font-size:14px;
@@ -544,6 +561,9 @@
 <div id="view-start">
 <section class="panel">
   <h2><span class="hole">&#9971;</span> Get Started</h2>
+  <div class="resume-note" id="resumeNote" hidden>
+    <b>Welcome back!</b> We picked up right where you last left off &mdash; roster, preferences, teams, picks, the works. Head to <a href="#" onclick="showView('main');return false" title="Continue editing the roster and four-man events">Four-Man Events</a> to continue editing, or straight to <a href="#" onclick="showView('save');return false" title="Export the pairing as a spreadsheet, save file, or text">Save &amp; Export</a> if you're ready to wrap up.
+  </div>
   <div class="report">
     <div class="rbox">
       <h4>New pairing</h4>
@@ -556,6 +576,7 @@
       <button class="go" onclick="loadFile.click()" title="Load a Cross Creek spreadsheet (.xlsx) — or a .json save file">Load a spreadsheet</button>
     </div>
   </div>
+  <div class="start-warn" id="startWarn" hidden>&#9888; You have work in progress. <b>Start new</b> and <b>Load a spreadsheet</b> both replace it &mdash; if you don't want to lose anything, grab a spreadsheet from Save &amp; Export first.</div>
 </section>
 </div><!-- /view-start -->
 
@@ -975,6 +996,7 @@ function run(cols,n,eventNames,prefs,rankWeight,prevLocked,prevTeams){
   STATE = {cols, n, eventNames, teams, locked};
   SEL = null;
   renderState(true);
+  persistSoon();
 }
 
 /* ================= analysis of current STATE ================= */
@@ -1296,6 +1318,7 @@ function showView(v){
     document.getElementById("view-"+k).hidden = (v!==k);
   });
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on", b.dataset.view===v));
+  if(v==="start") updateStartNotices();
   if(v==="twoman") renderTwoMan();
   if(v==="gambling") renderGambling();
   if(v==="roomies") renderRoomies();
@@ -1315,6 +1338,8 @@ function startNew(){
   ROOMIES={rooms:[]}; RMSEL=null; GAMBLING={};
   document.getElementById("hideWinnings").checked=true;
   checkColumns(); renderTwoMan(); renderGambling(); renderRoomies(); renderTee();
+  document.getElementById("resumeNote").hidden = true; // the old session is gone
+  persistNow();
   statusEl.textContent="Fresh pairing — set the roster and hit Generate.";
   showView("main");
 }
@@ -1972,6 +1997,31 @@ async function xlsxSaveData(u8){ // the parsed save object, or null if none is i
   }
   return null;
 }
+/* rehydrate the whole app from a save object — shared by file loads and the
+   localStorage session restore. Returns "teams", "setup", or "bad-teams". */
+function applySave(s, scroll){
+  applySetup(s);
+  if(s.teams){
+    const cols = roster();
+    const n = cols[0].length;
+    const R = (s.events||[]).length;
+    const ok = Array.isArray(s.teams) && s.teams.length===R &&
+      s.teams.every(rt=>Array.isArray(rt)&&rt.length===n&&rt.every(tm=>Array.isArray(tm)&&tm.length===4&&tm.every(i=>Number.isInteger(i)&&i>=0&&i<n)));
+    if(!ok) return "bad-teams";
+    const lockedOk = Array.isArray(s.locked) && s.locked.length===R && s.locked.every(row=>Array.isArray(row)&&row.length===n);
+    const locked = lockedOk ? s.locked.map(row=>row.map(v=>!!v)) : s.teams.map(rt=>rt.map(()=>false));
+    STATE = {cols, n, eventNames: s.events, teams: s.teams, locked};
+    SEL=null; hasScrolled=false;
+    renderState(scroll);
+    renderTwoMan(); // now that teams are back, the collision check can run
+    if(TEE) teeSync(); // adopt the loaded groups as the tee sheet's baseline
+    renderTee();
+    return "teams";
+  }
+  STATE=null; document.getElementById("results").innerHTML="";
+  renderTee();
+  return "setup";
+}
 function loadAll(inp){
   const f = inp.files[0]; if(!f) return;
   const rd = new FileReader();
@@ -1982,28 +2032,12 @@ function loadAll(inp){
         ? await xlsxSaveData(u8)
         : JSON.parse(new TextDecoder().decode(u8));
       if(!s || s.type!=="cross-creek-save") throw new Error("no save");
-      applySetup(s);
-      if(s.teams){
-        const cols = roster();
-        const n = cols[0].length;
-        const R = (s.events||[]).length;
-        const ok = Array.isArray(s.teams) && s.teams.length===R &&
-          s.teams.every(rt=>Array.isArray(rt)&&rt.length===n&&rt.every(tm=>Array.isArray(tm)&&tm.length===4&&tm.every(i=>Number.isInteger(i)&&i>=0&&i<n)));
-        if(!ok){ statusEl.textContent="Loaded the roster and preferences, but the team data in that file looked off."; return; }
-        const lockedOk = Array.isArray(s.locked) && s.locked.length===R && s.locked.every(row=>Array.isArray(row)&&row.length===n);
-        const locked = lockedOk ? s.locked.map(row=>row.map(v=>!!v)) : s.teams.map(rt=>rt.map(()=>false));
-        STATE = {cols, n, eventNames: s.events, teams: s.teams, locked};
-        SEL=null; hasScrolled=false;
-        renderState(true);
-        renderTwoMan(); // now that teams are back, the collision check can run
-        if(TEE) teeSync(); // adopt the loaded groups as the tee sheet's baseline
-        renderTee();
-        statusEl.textContent = "Loaded — teams restored, click players to rearrange.";
-      } else {
-        STATE=null; document.getElementById("results").innerHTML="";
-        renderTee();
-        statusEl.textContent = "Loaded — roster and preferences restored. Hit Generate for teams.";
-      }
+      const res = applySave(s, true);
+      document.getElementById("resumeNote").hidden = true; // the old session is gone — the file is the session now
+      persistNow();
+      if(res==="bad-teams"){ statusEl.textContent="Loaded the roster and preferences, but the team data in that file looked off."; return; }
+      statusEl.textContent = res==="teams" ? "Loaded — teams restored, click players to rearrange."
+                                           : "Loaded — roster and preferences restored. Hit Generate for teams.";
       showView("main");
     }catch(e){ statusEl.textContent = "That file didn't look like a Cross Creek save."; showView("main"); }
   };
@@ -2443,6 +2477,47 @@ async function saveEverything(){
 renderTwoMan();
 renderGambling();
 renderRoomies();
+
+/* ================= local autosave =================
+   Everything is quietly mirrored into localStorage as you work, so closing
+   the tab loses nothing — next visit picks up right where you left off.
+   Explicit saves (Save & Export) are still the only way to get a file out. */
+const AUTOSAVE_KEY = "cross-creek-autosave";
+const FRESH_SAVE = JSON.stringify(saveData()); // what an untouched app looks like
+let persistTimer = null;
+function persistNow(){
+  clearTimeout(persistTimer); persistTimer = null;
+  try{ localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(saveData())); }catch(e){}
+}
+function persistSoon(){
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(persistNow, 400);
+}
+function updateStartNotices(){
+  document.getElementById("startWarn").hidden = JSON.stringify(saveData())===FRESH_SAVE;
+}
+/* every mutation in the app rides on an input, change, or click — a debounced
+   catch-all beats wiring persist() into dozens of handlers. Async paths
+   (generate's solver, file loads) persist explicitly when they land. */
+document.addEventListener("input", persistSoon, true);
+document.addEventListener("change", persistSoon, true);
+document.addEventListener("click", persistSoon, true);
+window.addEventListener("beforeunload", ()=>{ if(persistTimer) persistNow(); });
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden && persistTimer) persistNow(); });
+
+(function restoreSession(){
+  let s = null;
+  try{ s = JSON.parse(localStorage.getItem(AUTOSAVE_KEY)||"null"); }catch(e){}
+  if(!s || s.type!=="cross-creek-save" || JSON.stringify(s)===FRESH_SAVE){ updateStartNotices(); return; }
+  try{
+    applySave(s, false);
+    document.getElementById("resumeNote").hidden = false;
+    statusEl.textContent = "Welcome back — your last session is restored.";
+  }catch(e){
+    try{ localStorage.removeItem(AUTOSAVE_KEY); }catch(_){} // corrupted autosave — start clean rather than wedge the app
+  }
+  updateStartNotices();
+})();
 </script>
 </body>
 </html>
