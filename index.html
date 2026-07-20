@@ -559,6 +559,7 @@
   <button class="tab on" data-view="start" onclick="showView('start')" title="Load a saved pairing or start a new one">Get Started</button>
   <button class="tab" data-view="main" onclick="showView('main')" title="Roster, preferences, and the three four-man events">Four-Man Events</button>
   <button class="tab" data-view="twoman" onclick="showView('twoman')" title="Hand-pick the two-man scramble teams and check them for collisions">Two-Man Scramble</button>
+  <button class="tab" data-view="tuesday" onclick="showView('tuesday')" title="The hand-drafted Tuesday round — name, tee time, and the write-up for the sheet">Tuesday</button>
   <button class="tab" data-view="gambling" onclick="showView('gambling')" title="Buy-ins and game details for each event — optional, lands on the Pairings sheet next to each game">Gambling</button>
   <button class="tab" data-view="roomies" onclick="showView('roomies')" title="Pair up roommates — completely optional, fills the Roomies sheet in the Excel workbook">Roommates</button>
   <button class="tab" data-view="tee" onclick="showView('tee')" title="Set each day's round order and optimize the tee-off order">Tee Order</button>
@@ -693,6 +694,24 @@
 </section>
 
 </div><!-- /view-twoman -->
+
+<div id="view-tuesday" hidden>
+
+<section class="panel">
+  <h2><span class="hole">&#127866;</span> Tuesday Round</h2>
+  <div class="events-row" style="margin-bottom:14px">
+    <input id="tuName" value="Hangover Red Tee Scramble" oninput="TUESDAY.name=this.value" title="Rename the Tuesday round — this name shows on the sheet, the PDF, and the text export">
+  </div>
+  <div style="margin-bottom:14px;font-size:14px">
+    <label title="Optional — Tuesday's first tee time, shown beside the event name in every export">First tee&nbsp;
+      <input type="time" id="tuStart" onchange="tuSetStart(this.value)" style="border:1px solid var(--line);border-radius:3px;padding:6px 8px;font:inherit;background:#fff">
+    </label>
+  </div>
+  <textarea id="tuDesc" style="min-height:96px" oninput="TUESDAY.desc=this.value" placeholder="How Tuesday works &mdash; who picks teams, trophies, serpentine order, whatever needs saying. Lands under the event name on the sheet, one line per row." title="The Tuesday write-up — shows under the event name on the sheet and the PDF"></textarea>
+  <p class="hint">Tuesday's teams are drafted by hand, so there's nothing to generate here &mdash; just the name, the tee time, and the write-up. Money for the day lives on the Gambling tab like every other event.</p>
+</section>
+
+</div><!-- /view-tuesday -->
 
 <div id="view-gambling" hidden>
 
@@ -1197,6 +1216,15 @@ document.getElementById("results").addEventListener("click", e=>{
 let TWOMAN = { name:"Two-Man Scramble", groups: [] };
 function tmEventName(){ return TWOMAN.name.trim() || "Two-Man Scramble"; }
 function twoManHasPicks(){ return TWOMAN.groups.some(g=>g[0][0]||g[0][1]||g[1][0]||g[1][1]); }
+
+/* ================= tuesday round =================
+   TUESDAY = { name, desc, start } — the hand-drafted Tuesday four-man.
+   Teams get picked in the bar Monday night, not by the app, so all it
+   carries is a name, an optional first tee time, and the write-up. Its
+   money rides on the Gambling tab like every other event (key "tu"). */
+let TUESDAY = { name:"Hangover Red Tee Scramble", desc:"", start:"" };
+function tuEventName(){ return TUESDAY.name.trim() || "Tuesday Round"; }
+function tuSetStart(v){ TUESDAY.start = /^\d{1,2}:\d{2}$/.test(v) ? v : ""; }
 function syncTwoManSize(){
   const n = roster()[0].length;
   while(TWOMAN.groups.length<n) TWOMAN.groups.push([["",""],["",""]]);
@@ -1244,7 +1272,7 @@ function fourManSeen(){
 let GAMBLING = {};
 function gamGames(){
   const evs=[...document.querySelectorAll("#events input")].map(i=>i.value.trim()||"Event");
-  return [{key:"tm", name:tmEventName()}].concat(evs.map((nm,r)=>({key:"e"+r, name:nm})));
+  return [{key:"tm", name:tmEventName()}].concat(evs.map((nm,r)=>({key:"e"+r, name:nm})), [{key:"tu", name:tuEventName()}]);
 }
 function gamSet(key, field, val){
   if(!GAMBLING[key]) GAMBLING[key]={amt:"",det:""};
@@ -1342,7 +1370,7 @@ function renderRoomies(){
   box.innerHTML = html;
 }
 function showView(v){
-  ["start","main","twoman","gambling","roomies","tee","save"].forEach(k=>{
+  ["start","main","twoman","tuesday","gambling","roomies","tee","save"].forEach(k=>{
     document.getElementById("view-"+k).hidden = (v!==k);
   });
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on", b.dataset.view===v));
@@ -1363,6 +1391,10 @@ function startNew(){
   STATE=null; SEL=null; document.getElementById("results").innerHTML="";
   TWOMAN={name:"Two-Man Scramble", groups:[]};
   document.getElementById("tmName").value=TWOMAN.name;
+  TUESDAY={name:"Hangover Red Tee Scramble", desc:"", start:""};
+  document.getElementById("tuName").value=TUESDAY.name;
+  document.getElementById("tuDesc").value="";
+  document.getElementById("tuStart").value="";
   TEE=null; TMSEL=null;
   ROOMIES={rooms:[]}; RMSEL=null; GAMBLING={};
   SENIORS=new Set();
@@ -1864,6 +1896,7 @@ function saveData(){
       w:+r.querySelector("input[type=range]").value })),
     rankWeight: +document.getElementById("rankBalance").value,
     twoMan: { name: TWOMAN.name, groups: TWOMAN.groups },
+    tuesday: { name: TUESDAY.name, desc: TUESDAY.desc, start: TUESDAY.start },
     roomies: { rooms: ROOMIES.rooms },
     seniors: [...SENIORS],
     gambling: GAMBLING,
@@ -1928,6 +1961,16 @@ function applySetup(s){
     TWOMAN = { name:"Two-Man Scramble", groups: [] };
   }
   document.getElementById("tmName").value = TWOMAN.name;
+  if(s.tuesday && typeof s.tuesday==="object"){
+    TUESDAY = { name: String(s.tuesday.name||"Hangover Red Tee Scramble"),
+                desc: String(s.tuesday.desc||""),
+                start: (typeof s.tuesday.start==="string" && /^\d{1,2}:\d{2}$/.test(s.tuesday.start)) ? s.tuesday.start : "" };
+  } else {
+    TUESDAY = { name:"Hangover Red Tee Scramble", desc:"", start:"" };
+  }
+  document.getElementById("tuName").value = TUESDAY.name;
+  document.getElementById("tuDesc").value = TUESDAY.desc;
+  document.getElementById("tuStart").value = TUESDAY.start;
   if(s.roomies && Array.isArray(s.roomies.rooms)){
     ROOMIES = { rooms: s.roomies.rooms.map(r=>[String((r&&r[0])||""), String((r&&r[1])||"")]) };
   } else {
@@ -2125,6 +2168,8 @@ function resultsText(){
            + "  |  T"+(g*2+2)+": "+tag(grp[1][0])+" & "+tag(grp[1][1])+"\n";
     });
   }
+  out += "\n" + tuEventName().toUpperCase() + " (TUESDAY" + (fmtTee(TUESDAY.start) ? ", "+fmtTee(TUESDAY.start) : "") + ")\n";
+  String(TUESDAY.desc||"").split("\n").map(s=>s.trim()).filter(Boolean).forEach(ln=>{ out += "  "+ln+"\n"; });
   if(TEE){
     const data = teeSheetData();
     if(data){
@@ -2217,6 +2262,17 @@ function buildPrintDoc(){
         +`</tbody></table></div></div>`;
     }
   });
+
+  /* Tuesday — hand-drafted in the bar, so no grid: the header, the
+     write-up, and the money */
+  const tug=GAMBLING["tu"]||{};
+  const tuAmt=String(tug.amt||"").trim();
+  const tuStart=fmtTee(TUESDAY.start);
+  h+=`<div class="pd-day"><span>Tuesday</span>${tuStart?`<span class="pd-daytime">first tee time at ${tuStart}</span>`:""}</div>`;
+  h+=`<div class="pd-eventwrap"><div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(tuEventName())} <span class="pd-holes">${holesLabel("tu")}</span></span>${tuAmt?`<span class="pd-buyin">${esc(isFinite(+tuAmt)?"$"+ +tuAmt:tuAmt)} buy-in</span>`:""}</div>`;
+  const tuDetail=[String(TUESDAY.desc||"").trim(), String(tug.det||"").trim()].filter(Boolean).join("\n");
+  if(tuDetail) h+=`<div class="pd-details">${esc(tuDetail).replace(/\n/g,"<br>")}</div>`;
+  h+=`</div></div>`;
   h+=`</div>`;
 
   h+=`<div class="pd-foot">Cross Creek ${year}</div>`;
@@ -2341,6 +2397,31 @@ function shPairings(){
   /* events appear in round order, and each event's groups are listed
      top-to-bottom in the order they tee off */
   const defs=teeSync();
+  /* gambling rides beside each event, where it's always lived: buy-in in E
+     on the title row, detail lines down F — long lines flow downward, one
+     column-width piece per row, so no row ever has to grow to fit them */
+  const addGam=(sec,key)=>{
+    const g=GAMBLING[key]||{};
+    const amt=String(g.amt||"").trim();
+    if(amt) sec[0][4]=isFinite(+amt) ? {v:+amt, s:6} : {v:amt, s:1};
+    const lines=String(g.det||"").replace(/\r/g,"").split("\n");
+    while(lines.length && !lines[lines.length-1].trim()) lines.pop();
+    const flat=[];
+    lines.forEach(ln=>{
+      const words=ln.trim().split(/\s+/).filter(Boolean);
+      if(!words.length){ flat.push(""); return; }
+      let cur="";
+      words.forEach(w=>{
+        if(cur && cur.length+1+w.length>32){ flat.push(cur); cur=w; }
+        else cur = cur ? cur+" "+w : w;
+      });
+      flat.push(cur);
+    });
+    flat.forEach((ln,i)=>{
+      if(!sec[i]) sec[i]=[];
+      if(ln) sec[i][5]={v:ln};
+    });
+  };
   let lastDay=null;
   TEE.seq.forEach(key=>{
     const d=defs.find(x=>x.key===key);
@@ -2362,36 +2443,35 @@ function shPairings(){
       sec.push(bannerRow(eventNames[r]+" "+holesLabel(key),4));
       perm.forEach(gi=>sec.push(teams[r][gi].map((idx,c)=>nameCell(cols[c][idx]))));
     }
-    /* gambling rides beside the event, where it's always lived:
-       buy-in in E on the title row, detail lines down F */
-    const g=GAMBLING[key]||{};
-    const amt=String(g.amt||"").trim();
-    if(amt) sec[0][4]=isFinite(+amt) ? {v:+amt, s:6} : {v:amt, s:1};
-    /* long lines flow downward, one column-width piece per row, so no
-       row ever has to grow to fit them */
-    const lines=String(g.det||"").replace(/\r/g,"").split("\n");
-    while(lines.length && !lines[lines.length-1].trim()) lines.pop();
-    const flat=[];
-    lines.forEach(ln=>{
-      const words=ln.trim().split(/\s+/).filter(Boolean);
-      if(!words.length){ flat.push(""); return; }
-      let cur="";
-      words.forEach(w=>{
-        if(cur && cur.length+1+w.length>32){ flat.push(cur); cur=w; }
-        else cur = cur ? cur+" "+w : w;
-      });
-      flat.push(cur);
-    });
-    flat.forEach((ln,i)=>{
-      if(!sec[i]) sec[i]=[];
-      if(ln) sec[i][5]={v:ln};
-    });
+    addGam(sec,key);
     /* a day's first tee time tags onto its opening event's banner title */
     const start=teeStartOf(day);
     if(dayFirst && start) sec[0][0].v += " · "+fmtTee(start);
     sec.forEach(r2=>rows.push(r2));
     rows.push(null);
   });
+  /* Tuesday rides at the bottom, matching every year's sheet — the round is
+     hand-drafted, so it's the banner, the write-up, and the money beside it */
+  rows.push(bannerRow("TUESDAY",4)); rows.push(null);
+  const tuSec=[bannerRow(tuEventName()+" "+holesLabel("tu"),4)];
+  if(fmtTee(TUESDAY.start)) tuSec[0][0].v += " · "+fmtTee(TUESDAY.start);
+  const tuDesc=String(TUESDAY.desc||"").replace(/\r/g,"").split("\n");
+  while(tuDesc.length && !tuDesc[tuDesc.length-1].trim()) tuDesc.pop();
+  /* the write-up wraps within the four name columns (A–D, ~80 characters)
+     so a long line never leaks into the gambling columns */
+  tuDesc.forEach(ln=>{
+    const words=ln.trim().split(/\s+/).filter(Boolean);
+    if(!words.length){ tuSec.push([]); return; }
+    let cur="";
+    words.forEach(w=>{
+      if(cur && cur.length+1+w.length>76){ tuSec.push([{v:cur}]); cur=w; }
+      else cur = cur ? cur+" "+w : w;
+    });
+    tuSec.push([{v:cur}]);
+  });
+  addGam(tuSec,"tu");
+  tuSec.forEach(r2=>rows.push(r2));
+  rows.push(null);
   const widths=[20,20,20,20,9,34];
   /* the key: two rows below the bottom matchup, a bold-edged yellow swatch
      with what it means beside it */
@@ -2412,6 +2492,7 @@ function shWinnings(){
     else byDay[teeDayOf(key)].push(eventNames[+key.slice(1)]);
   });
   const dayMoney=byDay.filter(m=>m.length);
+  dayMoney.push([tuEventName()]); // Tuesday's column rides at the end — hand-drafted, but the winnings still count
   if(!dayMoney.length||!players.length) return null;
   const segs=[]; let c=2;
   dayMoney.forEach(m=>{
