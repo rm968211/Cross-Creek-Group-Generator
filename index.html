@@ -397,6 +397,8 @@
     border:1px solid var(--line);border-radius:3px;padding:8px 10px;background:#fff;
   }
   .gam-card textarea{min-height:88px;resize:vertical}
+  .gam-total{margin-top:12px;font-size:15px;text-align:right}
+  .gam-total:empty{display:none}
 
   /* ===== roommates ===== */
   .rm-rooms{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
@@ -508,6 +510,7 @@
   .pd-time{font-family:Verdana,sans-serif;font-size:8pt;letter-spacing:.1em;color:#444;white-space:nowrap}
   .pd-gam{border-top:.75pt solid #e2ddcb;padding:4pt 10pt;display:flex;gap:10pt;align-items:baseline}
   .pd-gam .pd-gamdet{flex:1;font-size:9pt;font-style:italic;color:#444}
+  .pd-total{text-align:right;font-family:Verdana,sans-serif;font-size:8pt;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;color:#7a2f22;margin-top:5pt}
   /* the wrapper carries the space above each card as padding for the same
      reason — a card that breaks onto a new page doesn't ride the top edge */
   .pd-eventwrap{break-inside:avoid;padding-top:6pt}
@@ -1279,6 +1282,18 @@ function gamGames(){
 function gamSet(key, field, val){
   if(!GAMBLING[key]) GAMBLING[key]={amt:"",det:""};
   GAMBLING[key][field]=val;
+  updateGamTotal();
+}
+/* what one player owes across every game — non-numeric amounts don't count */
+function gamTotal(){
+  return gamGames().reduce((sum,g)=>{
+    const a=+String((GAMBLING[g.key]||{}).amt||"").trim();
+    return sum + (isFinite(a)&&a>0 ? a : 0);
+  },0);
+}
+function updateGamTotal(){
+  const el=document.getElementById("gamTotal");
+  if(el) el.innerHTML = gamTotal() ? `Total to bring: <b>$${gamTotal()}</b> per player` : "";
 }
 function renderGambling(){
   const box=document.getElementById("gamblingList");
@@ -1295,7 +1310,8 @@ function renderGambling(){
         <textarea oninput="gamSet('${g.key}','det',this.value)" placeholder="Payouts, instructions, game details &mdash; one line per row on the sheet" title="Anything you want on the sheet next to this game — each line gets its own row">${esc(d.det)}</textarea>
       </label>
     </div>`;
-  }).join("");
+  }).join("") + `<div class="gam-total" id="gamTotal"></div>`;
+  updateGamTotal();
 }
 /* ================= roommates =================
    ROOMIES.rooms[i] = [name, name] — two to a room, completely optional;
@@ -2172,6 +2188,7 @@ function resultsText(){
   }
   out += "\n" + tuEventName().toUpperCase() + " (TUESDAY" + (fmtTee(TUESDAY.start) ? ", "+fmtTee(TUESDAY.start) : "") + ")\n";
   String(TUESDAY.desc||"").split("\n").map(s=>s.trim()).filter(Boolean).forEach(ln=>{ out += "  "+ln+"\n"; });
+  if(gamTotal()) out += "\nTOTAL BUY-INS: $"+gamTotal()+" PER PLAYER\n";
   if(TEE){
     const data = teeSheetData();
     if(data){
@@ -2278,6 +2295,7 @@ function buildPrintDoc(){
   if(tuWrite) h+=`<div class="pd-details">${esc(tuWrite).replace(/\n/g,"<br>")}</div>`;
   if(tuAmt||tuDet) h+=`<div class="pd-gam">${tuAmt?`<span class="pd-buyin">${esc(isFinite(+tuAmt)?"$"+ +tuAmt:tuAmt)} buy-in</span>`:""}${tuDet?`<div class="pd-gamdet">${esc(tuDet).replace(/\n/g,"<br>")}</div>`:""}</div>`;
   h+=`</div></div>`;
+  if(gamTotal()) h+=`<div class="pd-total">$${gamTotal()} total &mdash; all buy-ins, per player</div>`;
   h+=`</div>`;
 
   h+=`<div class="pd-foot">Cross Creek ${year}</div>`;
@@ -2477,6 +2495,8 @@ function shPairings(){
   addGam(tuSec,"tu");
   tuSec.forEach(r2=>rows.push(r2));
   rows.push(null);
+  /* the grand total under the buy-in column — what each player brings */
+  if(gamTotal()) rows.push([null,null,null,null,{v:gamTotal(),s:6},{v:"Total",s:1}]);
   const widths=[20,20,20,20,9,34];
   /* the key: two rows below the bottom matchup, a bold-edged yellow swatch
      with what it means beside it */
