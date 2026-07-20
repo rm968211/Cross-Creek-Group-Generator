@@ -460,9 +460,8 @@
   .tee-day .tee-start input{border:1px solid var(--line);border-radius:3px;padding:2px 6px;font:inherit;background:#fff}
 
   /* ===== print document =====
-     A purpose-built page, assembled fresh at print time — everything the
-     spreadsheet holds (Roomies, Rankings, Pairings day by day, Winnings when
-     it's not hidden), none of the app chrome, and no encoded save data. */
+     A purpose-built page, assembled fresh at print time — Roomies, Rankings,
+     and Pairings day by day, none of the app chrome, no encoded save data. */
   #printDoc{display:none;font-family:Georgia,"Times New Roman",serif;color:#1c1c1c}
   body.print-preview .wrap{display:none}
   body.print-preview #printDoc{display:block;max-width:820px;margin:0 auto;background:#fff;padding:36px}
@@ -512,14 +511,6 @@
   .pd-roomies{margin-top:8pt;border:1pt solid #c9c4b4;border-radius:3pt}
   .pd-roomies td:not(.pd-num){width:45%}
   .pd-roomies td:not(.pd-num):empty::after{content:"";display:block;border-bottom:.75pt solid #bbb;height:9pt;width:85%}
-  .pd-win{margin-top:8pt;font-size:9.5pt}
-  .pd-win th{
-    font-family:Verdana,sans-serif;font-size:7.5pt;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--fair);border-bottom:1.5pt solid var(--fair);white-space:nowrap;
-  }
-  .pd-win td{border:.75pt solid #d5d0bf;height:13pt}
-  .pd-win td.pd-name{border:none;border-bottom:.75pt solid #e2ddcb;white-space:nowrap}
-  .pd-win .pd-calc{background:#f2efe3}
   .pd-foot{
     margin-top:18pt;padding-top:6pt;border-top:1pt solid #c9c4b4;text-align:center;
     font-family:Verdana,sans-serif;font-size:7.5pt;letter-spacing:.2em;text-transform:uppercase;color:#999;
@@ -718,7 +709,7 @@
       <button class="toolbtn" onclick="saveAll()" title="Save everything to one .json file — roster, events, preferences, teams, two-man picks, roommates, and the tee order">Save file (.json)</button>
       <button class="toolbtn" onclick="copyResults()" title="Copy all the pairings and the tee order as plain text — paste into a group chat or email">Copy as text</button>
       <button class="toolbtn" onclick="downloadText()" title="Download the pairings and tee order as a plain .txt file">Download text</button>
-      <button class="toolbtn" onclick="printPDF()" title="A print-ready document — the Cross Creek logo up top, then Roomies, Rankings, and the pairings day by day (plus Winnings if it's not hidden). Save as PDF from the print dialog">Print / PDF</button>
+      <button class="toolbtn" onclick="printPDF()" title="A print-ready document — the Cross Creek logo up top, then Roomies, Rankings, and the pairings day by day. Save as PDF from the print dialog">Print / PDF</button>
     </div>
   </details>
 </section>
@@ -2069,18 +2060,19 @@ function downloadText(){
 }
 /* ================= print / PDF =================
    Builds #printDoc — the whole outing, spreadsheet-shaped but dressed for
-   paper: logo header, Roomies, Rankings, Pairings day by day (buy-ins and
-   details included), and the Winnings grid unless it's hidden. */
+   paper: logo header, Roomies, Rankings, and Pairings day by day with
+   buy-ins and details. No Winnings grid, no encoded save data. */
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function buildPrintDoc(){
   const box=document.getElementById("printDoc");
   if(!STATE){ box.innerHTML=""; document.body.classList.remove("print-ready"); return false; }
-  const {cols,eventNames,n}=STATE;
+  const {cols}=STATE;
   const defs=teeSync();
   const data=teeSheetData(defs);
   const everyone=[].concat(...cols);
+  const year=new Date().getFullYear();
   let h=`<div class="pd-header"><img src="assets/cross-creek-logo.png" alt="Cross Creek">
-    <div class="pd-sub">${everyone.length} players &middot; ${n} foursomes &middot; pairings &amp; tee sheet</div></div>`;
+    <div class="pd-sub">${year} &middot; Pairings &amp; Tee Times</div></div>`;
 
   /* roomies — filled beds print, open beds get a line to write on */
   let rms="";
@@ -2112,24 +2104,7 @@ function buildPrintDoc(){
   });
   h+=`</div>`;
 
-  /* winnings — same day-grouped money grid as the sheet, left blank to fill in */
-  if(!document.getElementById("hideWinnings").checked){
-    const byDay=TEE_DAYS.map(()=>[]);
-    TEE.seq.forEach(key=>{
-      if(key==="tm"){ if(twoManHasPicks()) byDay[teeDayOf(key)].push(tmEventName()); }
-      else byDay[teeDayOf(key)].push(eventNames[+key.slice(1)]);
-    });
-    const dayMoney=byDay.filter(m=>m.length);
-    if(dayMoney.length){
-      const headCells=dayMoney.map((m,j)=>m.map(ev=>`<th>${esc(ev)}</th>`).join("")+`<th>${j===dayMoney.length-1?"Final":"Subtotal"}</th>`).join("");
-      const blank=dayMoney.map(m=>m.map(()=>"<td></td>").join("")+`<td class="pd-calc"></td>`).join("");
-      h+=`<div class="pd-section pd-break"><div class="pd-title">Winnings</div>
-        <table class="pd-table pd-win"><thead><tr><th></th>${headCells}</tr></thead>
-        <tbody>${everyone.map(nm=>`<tr><td class="pd-name">${esc(nm)}</td>${blank}</tr>`).join("")}
-        <tr><td class="pd-name"><b>Total</b></td>${blank}</tr></tbody></table></div>`;
-    }
-  }
-  h+=`<div class="pd-foot">Cross Creek &middot; generated by the pairings tool</div>`;
+  h+=`<div class="pd-foot">Cross Creek ${year}</div>`;
   box.innerHTML=h;
   document.body.classList.add("print-ready");
   return true;
@@ -2137,9 +2112,16 @@ function buildPrintDoc(){
 function printPDF(){
   if(!STATE){ statusEl.textContent="Generate pairings first."; return; }
   buildPrintDoc();
-  window.print();
+  /* don't open the dialog until the logo has actually loaded — a race here
+     prints a blank header */
+  const img=document.querySelector("#printDoc img");
+  if(img && !img.complete){
+    img.addEventListener("load", ()=>window.print(), {once:true});
+    img.addEventListener("error", ()=>window.print(), {once:true});
+  } else window.print();
 }
 window.addEventListener("beforeprint", ()=>{ if(STATE) buildPrintDoc(); }); // Cmd+P gets the good version too
+new Image().src="assets/cross-creek-logo.png"; // warm the cache so the print header never races
 /* ================= Excel workbook (.xlsx) =================
    Shaped like our past years' spreadsheets: Roomies, Rankings (every
    player ranked 1..n in their tier), Pairings (events in round order,
