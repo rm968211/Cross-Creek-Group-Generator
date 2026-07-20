@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cross Creek Pairings</title>
+<title>Cross Creek Commissioners Toolkit</title>
 <link rel="icon" href="favicon.ico">
 <style>
   :root{
@@ -28,48 +28,19 @@
 
   header{
     text-align:center;
-    border-top: 3px double var(--ink);
-    border-bottom: 3px double var(--ink);
-    padding: 22px 8px 18px;
-    margin-bottom: 28px;
-    background: var(--card);
+    padding: 14px 8px;
+    margin-bottom: 22px;
+    background: linear-gradient(180deg, #2c4c38 0%, var(--ink) 75%);
+    border: 1px solid rgba(168,132,60,.55); /* thin gold keyline */
+    border-radius: 10px;
+    box-shadow: 0 3px 14px rgba(30,58,47,.28);
   }
-  header .est{
-    font-family: Verdana, sans-serif;
-    font-size:11px; letter-spacing:.35em; text-transform:uppercase;
-    color: var(--tee-red);
+  header .masthead{
+    display:block;
+    margin:0 auto;
+    width:min(320px, 90%);
+    height:auto;
   }
-  header h1{
-    font-size: clamp(30px, 6vw, 46px);
-    font-weight: normal;
-    letter-spacing:.04em;
-    margin: 4px 0 2px;
-    position: relative;
-    display: inline-block;
-  }
-  header h1 .logo{
-    position: absolute;
-    left: 100%;
-    top: 50%;
-    transform: translateY(-50%);
-    height: 2.6em;
-    width: 2.6em;
-    margin-left: 16px;
-    object-fit: contain;
-    vertical-align: middle;
-  }
-  @media(max-width:640px){
-    header h1{ display:block; }
-    header h1 .logo{
-      position: static;
-      display: block;
-      transform: none;
-      height: 110px;
-      width: 110px;
-      margin: 10px auto 0;
-    }
-  }
-  header .sub{font-style:italic; color:var(--ink-soft); font-size:15px}
 
   .panel{
     background: var(--card);
@@ -552,9 +523,7 @@
 <div class="wrap">
 
 <header>
-  <div class="est">28 Players &middot; 7 Foursomes</div>
-  <h1>Cross Creek Pairings<img class="logo" src="Jeff2.png" alt="Jeff"></h1>
-  <div class="sub">Powered by JI (Jeff Intelligence)&trade;</div>
+  <img class="masthead" src="assets/cross-creek-toolkit-logo.png" alt="Cross Creek Commissioners Toolkit &mdash; Powered by JI (Jeff Intelligence)&trade;">
 </header>
 
 <nav class="tabs">
