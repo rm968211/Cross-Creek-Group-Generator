@@ -516,6 +516,7 @@
   }
   .pd-ehead .pd-ename{font-size:12pt;font-weight:bold;color:var(--fair)}
   .pd-buyin{font-family:Verdana,sans-serif;font-size:8pt;letter-spacing:.1em;text-transform:uppercase;color:#7a2f22;white-space:nowrap}
+  .pd-holes{font-family:Verdana,sans-serif;font-size:7.5pt;font-weight:normal;color:#8a8467;letter-spacing:.05em;white-space:nowrap}
   .pd-details{font-size:9pt;font-style:italic;color:#444;padding:4pt 10pt;border-bottom:1pt solid #e2ddcb}
   .pd-table{width:100%;border-collapse:collapse;font-size:10.5pt}
   .pd-table td,.pd-table th{padding:3pt 10pt;text-align:left;vertical-align:top}
@@ -1117,7 +1118,7 @@ function renderState(scroll){
   let html = `<div class="edit-note">&#9997;&#65039; <b>Hand-editing is on.</b> Click a player, then click another player in the <em>same letter column of the same event</em> to swap them. Click the &#128275; next to a team number to <b>lock</b> that foursome in place &mdash; locked teams (highlighted) stay put next time you hit Generate, so only the rest get reshuffled.</div>`;
 
   for(let r=0;r<teams.length;r++){
-    html+=`<div class="event-card"><div class="ehead"><h3>${eventNames[r]}</h3><span>${TEE_DAYS[teeDayOf("e"+r)]}</span></div>
+    html+=`<div class="event-card"><div class="ehead"><h3>${eventNames[r]} ${holesLabel("e"+r)}</h3><span>${TEE_DAYS[teeDayOf("e"+r)]}</span></div>
       <div class="table-scroll"><table><thead><tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>`;
     for(let t=0;t<n;t++){
       const locked = !!(lockedGrid[r] && lockedGrid[r][t]);
@@ -1489,6 +1490,8 @@ let TEE = null;
    to either day (TEE.day). The overnight break resets the course — nothing
    about one day's tee order waits on the other's. */
 const TEE_DAYS=["Sunday","Monday"];
+/* two-man rounds are assumed to play 9 holes, the four-man events 18 */
+function holesLabel(key){ return key==="tm" ? "(9 holes)" : "(18 holes)"; }
 function teeDefaultDay(key){ return (key==="tm"||key==="e0") ? 0 : 1; }
 function teeDayOf(key){
   return (TEE && TEE.day && Number.isInteger(TEE.day[key])) ? TEE.day[key] : teeDefaultDay(key);
@@ -1786,7 +1789,7 @@ function renderTee(){
       const dnTitle = rn===idxs.length-1 ? (dnOk?`Move this round to ${TEE_DAYS[day+1]}`:"") : `Play this round later on ${TEE_DAYS[day]}`;
       obHtml+=`<div class="tee-order-row">
     <span class="rno">Round ${rn+1}</span>
-    <span class="rname">${d.name}${d.key==="tm"?' <span class="rtag">two-man</span>':''}</span>
+    <span class="rname">${d.name} ${holesLabel(d.key)}${d.key==="tm"?' <span class="rtag">two-man</span>':''}</span>
     <button class="udbtn" ${upOk?'':'disabled'} onclick="teeMove(${i},-1)" title="${upTitle}">&#9650;</button>
     <button class="udbtn" ${dnOk?'':'disabled'} onclick="teeMove(${i},1)" title="${dnTitle}">&#9660;</button>
   </div>`;
@@ -1829,7 +1832,7 @@ function renderTee(){
     </section>`;
     dayRounds.forEach(rd=>{
       const teeCol = !rd.cont && rd.start;
-      dHtml+=`<div class="event-card"><div class="ehead"><h3>${rd.dayName} Round ${rd.rnum} &mdash; ${rd.name}</h3><span>${rd.cont?`starts once group ${rd.hold+1} of Round ${rd.rnum-1} is in`:(teeCol?`first tee time at ${fmtTee(rd.start)}`:"tee-off order")}</span></div>
+      dHtml+=`<div class="event-card"><div class="ehead"><h3>${rd.dayName} Round ${rd.rnum} &mdash; ${rd.name} ${holesLabel(rd.key)}</h3><span>${rd.cont?`starts once group ${rd.hold+1} of Round ${rd.rnum-1} is in`:(teeCol?`first tee time at ${fmtTee(rd.start)}`:"tee-off order")}</span></div>
       <div class="table-scroll"><table><thead><tr>${teeCol?'<th>First Tee</th>':''}<th></th><th>Group</th>${rd.cont?'<th>Coming Off</th>':''}</tr></thead><tbody>`;
       rd.slots.forEach((s,k)=>{
         dHtml+=`<tr>${teeCol?`<td class="ttime">${k===0?fmtTee(rd.start):""}</td>`:''}<td class="tno">${k+1}</td><td><span class="cell2">${s.label}</span></td>${
@@ -2196,7 +2199,7 @@ function buildPrintDoc(){
     }
     const g=GAMBLING[rd.key]||{};
     const amt=String(g.amt||"").trim(), det=String(g.det||"").trim();
-    h+=`<div class="pd-eventwrap"><div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(rd.name)}</span>${amt?`<span class="pd-buyin">${esc(isFinite(+amt)?"$"+ +amt:amt)} buy-in</span>`:""}</div>`;
+    h+=`<div class="pd-eventwrap"><div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(rd.name)} <span class="pd-holes">${holesLabel(rd.key)}</span></span>${amt?`<span class="pd-buyin">${esc(isFinite(+amt)?"$"+ +amt:amt)} buy-in</span>`:""}</div>`;
     if(det) h+=`<div class="pd-details">${esc(det).replace(/\n/g,"<br>")}</div>`;
     /* the groups as a real grid — one player per cell, rank in small type */
     const def=defs.find(d=>d.key===rd.key);
@@ -2338,21 +2341,17 @@ function shPairings(){
   /* events appear in round order, and each event's groups are listed
      top-to-bottom in the order they tee off */
   const defs=teeSync();
-  /* a first tee time on any day earns the sheet an extra left-hand column
-     carrying "First tee ..." beside each day's opening event */
-  const anyStart = TEE_DAYS.some((_,d)=>teeStartOf(d));
-  const off = anyStart ? 1 : 0;
   let lastDay=null;
   TEE.seq.forEach(key=>{
     const d=defs.find(x=>x.key===key);
     if(!d) return;
     const day=teeDayOf(key), dayName=TEE_DAYS[day].toUpperCase();
     let dayFirst=false;
-    if(dayName!==lastDay){ rows.push(bannerRow(dayName,4+off)); rows.push(null); lastDay=dayName; dayFirst=true; }
+    if(dayName!==lastDay){ rows.push(bannerRow(dayName,4)); rows.push(null); lastDay=dayName; dayFirst=true; }
     const perm=TEE.perm[key];
     const sec=[];
     if(key==="tm"){
-      sec.push(bannerRow(tmEventName(),4));
+      sec.push(bannerRow(tmEventName()+" "+holesLabel(key),4));
       perm.forEach(gi=>{
         const grp=TWOMAN.groups[gi];
         if(!(grp[0][0]||grp[0][1]||grp[1][0]||grp[1][1])) return;
@@ -2360,7 +2359,7 @@ function shPairings(){
       });
     } else {
       const r=+key.slice(1);
-      sec.push(bannerRow(eventNames[r],4));
+      sec.push(bannerRow(eventNames[r]+" "+holesLabel(key),4));
       perm.forEach(gi=>sec.push(teams[r][gi].map((idx,c)=>nameCell(cols[c][idx]))));
     }
     /* gambling rides beside the event, where it's always lived:
@@ -2387,16 +2386,13 @@ function shPairings(){
       if(!sec[i]) sec[i]=[];
       if(ln) sec[i][5]={v:ln};
     });
-    if(off){
-      sec.forEach(r2=>r2.unshift(null)); // everything slides right to make room for the tee-time column
-      const start=teeStartOf(day);
-      if(dayFirst && start) sec[0][0]={v:"First tee time at "+fmtTee(start), s:1};
-    }
+    /* a day's first tee time tags onto its opening event's banner title */
+    const start=teeStartOf(day);
+    if(dayFirst && start) sec[0][0].v += " · "+fmtTee(start);
     sec.forEach(r2=>rows.push(r2));
     rows.push(null);
   });
   const widths=[20,20,20,20,9,34];
-  if(off) widths.unshift(25); // wide enough for the tee-time line and the logo's right edge
   /* the key: two rows below the bottom matchup, a bold-edged yellow swatch
      with what it means beside it */
   if([].concat(...cols).some(nm=>SENIORS.has(nm))) rows.push(null, [{v:"Yellow highlight",s:8},{v:"= Plays the senior tees",s:1}]);
