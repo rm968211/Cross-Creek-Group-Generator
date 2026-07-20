@@ -520,6 +520,14 @@
   .pd-table tbody tr:nth-child(even){background:#faf8ef}
   .pd-table tbody tr+tr td{border-top:.75pt solid #e2ddcb}
   .pd-num{font-family:Verdana,sans-serif;font-size:8pt;color:#9a2c1e;width:22pt;letter-spacing:.05em}
+  .pd-table th.pd-col{
+    font-family:Verdana,sans-serif;font-size:7pt;font-weight:bold;letter-spacing:.2em;
+    text-transform:uppercase;color:#8a8467;border-bottom:.75pt solid #c9c4b4;
+  }
+  .pd-table td.pd-p{width:25%}
+  .pd-table td.pd-t{width:50%}
+  .pd-table td.pd-p+td.pd-p, .pd-table td.pd-t+td.pd-t{border-left:.75pt solid #e2ddcb}
+  .pd-rk{font-family:Verdana,sans-serif;font-size:6.5pt;color:#8a8467;letter-spacing:.05em;white-space:nowrap}
   .pd-ranks{display:flex;gap:12pt;margin-top:6pt}
   .pd-rank-col{flex:1;border:1pt solid #c9c4b4;border-radius:3pt;overflow:hidden}
   .pd-rank-col h4{
@@ -2126,7 +2134,21 @@ function buildPrintDoc(){
     const amt=String(g.amt||"").trim(), det=String(g.det||"").trim();
     h+=`<div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(rd.name)}</span>${amt?`<span class="pd-buyin">${esc(isFinite(+amt)?"$"+ +amt:amt)} buy-in</span>`:""}</div>`;
     if(det) h+=`<div class="pd-details">${esc(det).replace(/\n/g,"<br>")}</div>`;
-    h+=`<table class="pd-table"><tbody>${rd.slots.map((s,k)=>`<tr><td class="pd-num">${k+1}</td><td>${s.label}</td></tr>`).join("")}</tbody></table></div>`;
+    /* the groups as a real grid — one player per cell, rank in small type */
+    const def=defs.find(d=>d.key===rd.key);
+    const rk=(c,i)=>` <span class="pd-rk">${letters[c]}${i+1}</span>`;
+    if(rd.key==="tm"){
+      const findName=nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return [c,i];} return null; };
+      const team=t=>t.filter(Boolean).map(nm=>{ const p=findName(nm); return esc(nm)+(p?rk(p[0],p[1]):""); }).join(" &amp; ")||"&mdash;";
+      h+=`<table class="pd-table"><thead><tr><th class="pd-num"></th><th class="pd-col">First Team</th><th class="pd-col">Second Team</th></tr></thead><tbody>`
+        +rd.slots.map((s,k)=>{ const grp=TWOMAN.groups[s.gi]||[["",""],["",""]];
+          return `<tr><td class="pd-num">${k+1}</td><td class="pd-t">${team(grp[0])}</td><td class="pd-t">${team(grp[1])}</td></tr>`; }).join("")
+        +`</tbody></table></div>`;
+    } else {
+      h+=`<table class="pd-table"><thead><tr><th class="pd-num"></th>${letters.map(L=>`<th class="pd-col">${L}</th>`).join("")}</tr></thead><tbody>`
+        +rd.slots.map((s,k)=>`<tr><td class="pd-num">${k+1}</td>${def.groups[s.gi].codes.map(code=>`<td class="pd-p">${esc(cols[code/100|0][code%100])}${rk(code/100|0,code%100)}</td>`).join("")}</tr>`).join("")
+        +`</tbody></table></div>`;
+    }
   });
   h+=`</div>`;
 
