@@ -1041,13 +1041,17 @@ function analyze(){
     }
   }
   const repeats = [...seen.entries()].filter(([k,v])=>v.length>1);
-  const repCells = new Set();   // "r|t|c" cells involved in a repeat
+  /* the four-man screen judges itself only — a pair that collides purely
+     because of a two-man pick is the two-man tab's problem, not this card's */
+  const repeats4 = repeats.map(([k,v])=>[k, v.filter(loc=>!loc.tm)]).filter(([k,v])=>v.length>1);
+  const repCells = new Set();   // "r|t|c" cells involved in a four-man repeat
   const tmRepCells = new Set(); // "g|team|slot" two-man slots involved in a repeat
   for(const [k,v] of repeats){
     const [x,y]=k.split("|").map(Number);
+    const four = v.filter(loc=>!loc.tm);
     for(const loc of v){
       if(loc.tm){ for(const m of loc.cells) tmRepCells.add(loc.g+"|"+m.tt+"|"+m.s); }
-      else { repCells.add(loc.r+"|"+loc.t+"|"+(x/100|0)); repCells.add(loc.r+"|"+loc.t+"|"+(y/100|0)); }
+      else if(four.length>1){ repCells.add(loc.r+"|"+loc.t+"|"+(x/100|0)); repCells.add(loc.r+"|"+loc.t+"|"+(y/100|0)); }
     }
   }
   const satisfied = new Set();
@@ -1060,7 +1064,7 @@ function analyze(){
     const [x,y]=k.split("|").map(Number);
     for(const loc of locs4){ heartCells.add(loc.r+"|"+loc.t+"|"+(x/100|0)); heartCells.add(loc.r+"|"+loc.t+"|"+(y/100|0)); }
   }
-  return {repeats, repCells, tmRepCells, heartCells, prefList, satisfied, seen};
+  return {repeats, repeats4, repCells, tmRepCells, heartCells, prefList, satisfied, seen};
 }
 
 /* ================= render ================= */
@@ -1105,17 +1109,16 @@ function renderState(scroll){
       for(let tt=0;tt<2;tt++) for(let s=0;s<2;s++){
         const nm = TWOMAN.groups[g][tt][s];
         const p = nm ? findName(nm) : null;
-        const bad = an.tmRepCells.has(g+"|"+tt+"|"+s);
-        html+=`<td${tt===1&&s===0?' class="teamsplit"':''}><span class="cell2${bad?' rep':''}">${nm?nm:'<span class="muted">&mdash;</span>'}${p?` <span class="rtag">${letters[p[0]]}${p[1]+1}</span>`:''}${bad?' <span class="warn" title="Collision — already shared a foursome with someone in this group">&#9888;</span>':''}</span></td>`;
+        html+=`<td${tt===1&&s===0?' class="teamsplit"':''}><span class="cell2">${nm?nm:'<span class="muted">&mdash;</span>'}${p?` <span class="rtag">${letters[p[0]]}${p[1]+1}</span>`:''}</span></td>`;
       }
       html+=`</tr>`;
     }
     html+=`</tbody></table></div></div>`;
   }
 
-  const repItems = an.repeats.map(([k,v])=>{
+  const repItems = an.repeats4.map(([k,v])=>{
     const [x,y]=k.split("|").map(Number);
-    const where = v.map(loc=>loc.tm ? tmEventName()+" G"+(loc.g+1) : eventNames[loc.r]+" T"+(loc.t+1)).join(", ");
+    const where = v.map(loc=>eventNames[loc.r]+" T"+(loc.t+1)).join(", ");
     return `${cols[x/100|0][x%100]} &amp; ${cols[y/100|0][y%100]} &mdash; ${where}`;
   });
   let prefHtml="";
@@ -1159,7 +1162,7 @@ document.getElementById("results").addEventListener("click", e=>{
     STATE.teams[r][SEL.t][c] = tmp;
     SEL=null; renderState(false);
     const an=analyze();
-    statusEl.textContent = an.repeats.length===0 ? "Swapped — still a clean card." : "Swapped — heads up, that created "+an.repeats.length+" repeat"+(an.repeats.length>1?"s":"")+" (flagged in red).";
+    statusEl.textContent = an.repeats4.length===0 ? "Swapped — still a clean card." : "Swapped — heads up, that created "+an.repeats4.length+" repeat"+(an.repeats4.length>1?"s":"")+" (flagged in red).";
     return;
   }
   SEL={r,t,c}; renderState(false); // different event/column: reselect
