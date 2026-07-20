@@ -1099,23 +1099,6 @@ function renderState(scroll){
     html+=`</tbody></table></div></div>`;
   }
 
-  if(twoManHasPicks()){
-    const tmName = tmEventName();
-    const findName = nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return [c,i];} return null; };
-    html+=`<div class="event-card"><div class="ehead"><h3>${tmName}</h3><span>two-man &middot; ${TEE_DAYS[teeDayOf("tm")]} &middot; edit picks on the Two-Man Scramble tab</span></div>
-      <div class="table-scroll"><table><thead><tr><th></th><th colspan="2">First Team</th><th colspan="2">Second Team</th></tr></thead><tbody>`;
-    for(let g=0; g<TWOMAN.groups.length; g++){
-      html+=`<tr><td class="tno">${g+1}</td>`;
-      for(let tt=0;tt<2;tt++) for(let s=0;s<2;s++){
-        const nm = TWOMAN.groups[g][tt][s];
-        const p = nm ? findName(nm) : null;
-        html+=`<td${tt===1&&s===0?' class="teamsplit"':''}><span class="cell2">${nm?nm:'<span class="muted">&mdash;</span>'}${p?` <span class="rtag">${letters[p[0]]}${p[1]+1}</span>`:''}</span></td>`;
-      }
-      html+=`</tr>`;
-    }
-    html+=`</tbody></table></div></div>`;
-  }
-
   const repItems = an.repeats4.map(([k,v])=>{
     const [x,y]=k.split("|").map(Number);
     const where = v.map(loc=>eventNames[loc.r]+" T"+(loc.t+1)).join(", ");
