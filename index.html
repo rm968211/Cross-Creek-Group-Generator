@@ -505,7 +505,9 @@
     padding-bottom:3pt;margin:3pt 0 5pt;padding-top:6pt;display:flex;justify-content:space-between;align-items:baseline;
     break-after:avoid; /* a day header never strands at the bottom of a page */
   }
-  .pd-day .pd-daytime{font-weight:normal;letter-spacing:.08em;font-size:8pt;color:#444}
+  .pd-time{font-family:Verdana,sans-serif;font-size:8pt;letter-spacing:.1em;color:#444;white-space:nowrap}
+  .pd-gam{border-top:.75pt solid #e2ddcb;padding:4pt 10pt;display:flex;gap:10pt;align-items:baseline}
+  .pd-gam .pd-gamdet{flex:1;font-size:9pt;font-style:italic;color:#444}
   /* the wrapper carries the space above each card as padding for the same
      reason — a card that breaks onto a new page doesn't ride the top edge */
   .pd-eventwrap{break-inside:avoid;padding-top:6pt}
@@ -2239,13 +2241,12 @@ function buildPrintDoc(){
   data.rounds.forEach(rd=>{
     if(rd.dayName!==lastDay){
       const key = !lastDay && everyone.some(nm=>SENIORS.has(nm)) ? `<span class="pd-daykey"><span class="pd-sr">SR</span> = plays the senior tees</span>` : "";
-      h+=`<div class="pd-day"><span>${rd.dayName}</span>${rd.start?`<span class="pd-daytime">first tee time at ${fmtTee(rd.start)}</span>`:""}${key}</div>`;
+      h+=`<div class="pd-day"><span>${rd.dayName}</span>${key}</div>`;
       lastDay=rd.dayName;
     }
     const g=GAMBLING[rd.key]||{};
     const amt=String(g.amt||"").trim(), det=String(g.det||"").trim();
-    h+=`<div class="pd-eventwrap"><div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(rd.name)} <span class="pd-holes">${holesLabel(rd.key)}</span></span>${amt?`<span class="pd-buyin">${esc(isFinite(+amt)?"$"+ +amt:amt)} buy-in</span>`:""}</div>`;
-    if(det) h+=`<div class="pd-details">${esc(det).replace(/\n/g,"<br>")}</div>`;
+    h+=`<div class="pd-eventwrap"><div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(rd.name)} <span class="pd-holes">${holesLabel(rd.key)}</span></span>${rd.start?`<span class="pd-time">${fmtTee(rd.start)}</span>`:""}</div>`;
     /* the groups as a real grid — one player per cell, rank in small type */
     const def=defs.find(d=>d.key===rd.key);
     const rk=(c,i)=>` <span class="pd-rk">${letters[c]}${i+1}</span>`;
@@ -2255,23 +2256,27 @@ function buildPrintDoc(){
       h+=`<table class="pd-table"><thead><tr><th class="pd-num"></th><th class="pd-col">First Team</th><th class="pd-col">Second Team</th></tr></thead><tbody>`
         +rd.slots.map((s,k)=>{ const grp=TWOMAN.groups[s.gi]||[["",""],["",""]];
           return `<tr><td class="pd-num">${k+1}</td><td class="pd-t">${team(grp[0])}</td><td class="pd-t">${team(grp[1])}</td></tr>`; }).join("")
-        +`</tbody></table></div></div>`;
+        +`</tbody></table>`;
     } else {
       h+=`<table class="pd-table"><thead><tr><th class="pd-num"></th>${letters.map(L=>`<th class="pd-col">${L}</th>`).join("")}</tr></thead><tbody>`
         +rd.slots.map((s,k)=>`<tr><td class="pd-num">${k+1}</td>${def.groups[s.gi].codes.map(code=>`<td class="pd-p">${esc(cols[code/100|0][code%100])}${rk(code/100|0,code%100)}${pdSr(cols[code/100|0][code%100])}</td>`).join("")}</tr>`).join("")
-        +`</tbody></table></div></div>`;
+        +`</tbody></table>`;
     }
+    /* the money rides at the foot of the card — buy-in first, details beside it */
+    if(amt||det) h+=`<div class="pd-gam">${amt?`<span class="pd-buyin">${esc(isFinite(+amt)?"$"+ +amt:amt)} buy-in</span>`:""}${det?`<div class="pd-gamdet">${esc(det).replace(/\n/g,"<br>")}</div>`:""}</div>`;
+    h+=`</div></div>`;
   });
 
   /* Tuesday — hand-drafted in the bar, so no grid: the header, the
      write-up, and the money */
   const tug=GAMBLING["tu"]||{};
-  const tuAmt=String(tug.amt||"").trim();
+  const tuAmt=String(tug.amt||"").trim(), tuDet=String(tug.det||"").trim();
   const tuStart=fmtTee(TUESDAY.start);
-  h+=`<div class="pd-day"><span>Tuesday</span>${tuStart?`<span class="pd-daytime">first tee time at ${tuStart}</span>`:""}</div>`;
-  h+=`<div class="pd-eventwrap"><div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(tuEventName())} <span class="pd-holes">${holesLabel("tu")}</span></span>${tuAmt?`<span class="pd-buyin">${esc(isFinite(+tuAmt)?"$"+ +tuAmt:tuAmt)} buy-in</span>`:""}</div>`;
-  const tuDetail=[String(TUESDAY.desc||"").trim(), String(tug.det||"").trim()].filter(Boolean).join("\n");
-  if(tuDetail) h+=`<div class="pd-details">${esc(tuDetail).replace(/\n/g,"<br>")}</div>`;
+  h+=`<div class="pd-day"><span>Tuesday</span></div>`;
+  h+=`<div class="pd-eventwrap"><div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(tuEventName())} <span class="pd-holes">${holesLabel("tu")}</span></span>${tuStart?`<span class="pd-time">${tuStart}</span>`:""}</div>`;
+  const tuWrite=String(TUESDAY.desc||"").trim();
+  if(tuWrite) h+=`<div class="pd-details">${esc(tuWrite).replace(/\n/g,"<br>")}</div>`;
+  if(tuAmt||tuDet) h+=`<div class="pd-gam">${tuAmt?`<span class="pd-buyin">${esc(isFinite(+tuAmt)?"$"+ +tuAmt:tuAmt)} buy-in</span>`:""}${tuDet?`<div class="pd-gamdet">${esc(tuDet).replace(/\n/g,"<br>")}</div>`:""}</div>`;
   h+=`</div></div>`;
   h+=`</div>`;
 
