@@ -484,7 +484,6 @@
   .pd-header{text-align:center;padding-bottom:8pt;border-bottom:3px double var(--fair);margin-bottom:2pt}
   .pd-header img{width:52%;max-width:300pt;height:auto}
   .pd-sub{font-family:Verdana,sans-serif;font-size:8.5pt;letter-spacing:.3em;text-transform:uppercase;color:var(--fair);margin-top:6pt}
-  /* the key rides the first day's header line, over on the right */
   .pd-daykey{font-weight:normal;letter-spacing:.08em;font-size:8pt;color:#444;text-transform:none;white-space:nowrap}
   .pd-sr{font-family:Verdana,sans-serif;font-size:6.5pt;font-weight:bold;color:var(--gold);letter-spacing:.05em;white-space:nowrap}
   .pd-section{margin-top:9pt}
@@ -2257,13 +2256,14 @@ function buildPrintDoc(){
   let lastDay=null;
   data.rounds.forEach(rd=>{
     if(rd.dayName!==lastDay){
-      const key = !lastDay && everyone.some(nm=>SENIORS.has(nm)) ? `<span class="pd-daykey"><span class="pd-sr">SR</span> = plays the senior tees</span>` : "";
-      h+=`<div class="pd-day"><span>${rd.dayName}</span>${key}</div>`;
+      h+=`<div class="pd-day"><span>${rd.dayName}</span></div>`;
       lastDay=rd.dayName;
     }
     const g=GAMBLING[rd.key]||{};
     const amt=String(g.amt||"").trim(), det=String(g.det||"").trim();
-    h+=`<div class="pd-eventwrap"><div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(rd.name)} <span class="pd-holes">${holesLabel(rd.key)}</span></span>${rd.start?`<span class="pd-time">${fmtTee(rd.start)}</span>`:""}</div>`;
+    /* the key rides the Slivo Scramble's own title line — the only event played off the senior tees */
+    const srKey = rd.key==="e0" && everyone.some(nm=>SENIORS.has(nm)) ? `<span class="pd-daykey"><span class="pd-sr">SR</span> = plays the senior tees</span>` : "";
+    h+=`<div class="pd-eventwrap"><div class="pd-event"><div class="pd-ehead"><span class="pd-ename">${esc(rd.name)} <span class="pd-holes">${holesLabel(rd.key)}</span></span>${srKey}${rd.start?`<span class="pd-time">${fmtTee(rd.start)}</span>`:""}</div>`;
     /* the groups as a real grid — one player per cell, rank in small type */
     const def=defs.find(d=>d.key===rd.key);
     const rk=(c,i)=>` <span class="pd-rk">${letters[c]}${i+1}</span>`;
