@@ -2327,7 +2327,7 @@ const SS_NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 /* cell styles (indexes into cellXfs in XL_STYLES):
    1 bold · 2 section banner (white on green) · 3 bold centered
    4 boxed fill-in cell · 5 banner centered · 6 bold dollars · 7 senior yellow
-   8 senior key swatch (yellow, bold edges, bold text) */
+   8 senior key swatch (yellow, bold edges, bold text) · 9 mid-table divider */
 const XL_STYLES = XMLDECL+`<styleSheet xmlns="${SS_NS}">`
   +'<numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0"/></numFmts>'
   +'<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font>'
@@ -2340,7 +2340,8 @@ const XL_STYLES = XMLDECL+`<styleSheet xmlns="${SS_NS}">`
   +'<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>'
   +'<border><left style="thin"><color rgb="FFBBBBBB"/></left><right style="thin"><color rgb="FFBBBBBB"/></right>'
   +'<top style="thin"><color rgb="FFBBBBBB"/></top><bottom style="thin"><color rgb="FFBBBBBB"/></bottom><diagonal/></border>'
-  +'<border><left style="medium"/><right style="medium"/><top style="medium"/><bottom style="medium"/><diagonal/></border></borders>'
+  +'<border><left style="medium"/><right style="medium"/><top style="medium"/><bottom style="medium"/><diagonal/></border>'
+  +'<border><left style="medium"/><right/><top/><bottom/><diagonal/></border></borders>'
   +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
   +'<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
   +'<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0"/>'
@@ -2350,7 +2351,8 @@ const XL_STYLES = XMLDECL+`<styleSheet xmlns="${SS_NS}">`
   +'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/></xf>'
   +'<xf numFmtId="164" fontId="1" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
   +'<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>'
-  +'<xf numFmtId="0" fontId="1" fillId="3" borderId="2" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs>'
+  +'<xf numFmtId="0" fontId="1" fillId="3" borderId="2" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>'
+  +'<xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1"/></cellXfs>'
   +'<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 function xmlEsc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function xlCol(i){ let s=""; for(i++; i; i=Math.floor((i-1)/26)) s=String.fromCharCode(65+(i-1)%26)+s; return s; }
@@ -2459,14 +2461,20 @@ function shPairings(){
       perm.forEach(gi=>{
         const grp=TWOMAN.groups[gi];
         if(!(grp[0][0]||grp[0][1]||grp[1][0]||grp[1][1])) return;
-        sec.push([grp[0][0],grp[0][1],grp[1][0],grp[1][1]].map(nm=>rankRef(cols,nm)));
+        const row=[grp[0][0],grp[0][1],grp[1][0],grp[1][1]].map(nm=>rankRef(cols,nm));
+        row[2]= grp[1][0] ? {v:grp[1][0], s:9} : {s:9}; // the line down the middle — each team plays the pair across it
+        sec.push(row);
       });
     } else {
       const r=+key.slice(1);
       sec.push(bannerRow(eventNames[r]+" "+holesLabel(key),4));
       perm.forEach(gi=>sec.push(teams[r][gi].map((idx,c)=>r===0?nameCell(cols[c][idx]):{v:cols[c][idx]})));
     }
+    const lastRow=sec.length-1; // bottom matchup row, before gambling lines can extend the section
     addGam(sec,key);
+    /* the two-man note rides its bottom row, column F — same spot the senior
+       key takes on the Slivo Scramble */
+    if(key==="tm" && lastRow>0) sec[lastRow][5]={v:"Two guys on the right of the line play the two guys on the left",s:1};
     /* the senior-tees key: a lone bold yellow box riding the Slivo Scramble's
        bottom row, two columns right of the last name */
     if(key==="e0" && [].concat(...cols).some(nm=>SENIORS.has(nm))) sec[perm.length][5]={v:"Play from senior tees",s:8};
