@@ -610,7 +610,7 @@
   <div class="senior-block">
     <label>Senior Tees</label>
     <div class="senior-chips" id="seniorChips"></div>
-    <p class="hint">Click a name to mark him as playing the senior tees &mdash; he gets an <span class="srtag" style="margin-left:0">SR</span> tag on the team sheets below and the PDF pairings, and a yellow highlight on the spreadsheet pairings.</p>
+    <p class="hint">Click a name to mark him as playing the senior tees &mdash; senior tees are played in the Slivo Scramble only, so the <span class="srtag" style="margin-left:0">SR</span> tag (team sheets, PDF) and the yellow highlight (spreadsheet) land on that event alone.</p>
   </div>
 </section>
 
@@ -657,7 +657,7 @@
         <li><span class="rtag" style="margin-left:0">A5</span> &nbsp;The player's letter tier and rank within it (1 = top of that tier's list, going down)</li>
         <li><span class="heart" style="margin-left:0">&#10084;</span> &nbsp;A granted preference &mdash; these two asked to play together and got it</li>
         <li><span class="warn" style="margin-left:0">&#9888;</span> + <span style="text-decoration:underline dotted var(--tee-red) 2px;text-underline-offset:3px">red underline</span> &nbsp;This player is part of a repeated pairing &mdash; check The Card for who and where</li>
-        <li><span class="srtag" style="margin-left:0">SR</span> &nbsp;Plays the senior tees</li>
+        <li><span class="srtag" style="margin-left:0">SR</span> &nbsp;Plays the senior tees &mdash; Slivo Scramble only</li>
         <li><span style="background:var(--gold);color:#fff;padding:1px 8px;border-radius:3px">gold</span> &nbsp;The player you've selected for a swap</li>
         <li><span style="background:rgba(47,107,69,.15);border:1px dashed var(--fair);padding:1px 8px;border-radius:3px">green dashed</span> &nbsp;Legal swap partners for your selection (same letter, same event)</li>
       </ul>
@@ -885,9 +885,9 @@ let SEL = null;   // selected cell {r,t,c} while hand-editing
 let hasScrolled = false;
 
 /* ================= senior tees =================
-   SENIORS = names playing the senior tees — a subtle SR tag on the four-man
-   team sheets and the PDF pairings, a yellow highlight on the spreadsheet
-   Pairings sheet, with a key alongside each. */
+   SENIORS = names playing the senior tees — senior tees are only played in
+   the Slivo Scramble (the first four-man event), so the SR tag (team sheets,
+   PDF) and the spreadsheet's yellow highlight mark that event alone. */
 let SENIORS = new Set();
 const srTag = nm => SENIORS.has(nm) ? ' <span class="srtag">SR</span>' : '';
 function renderSeniors(){
@@ -1156,7 +1156,7 @@ function renderState(scroll){
         const tip = isSel ? "Selected — click a green player to swap, or click again to cancel"
           : isTarget ? "Click to swap with your selected player"
           : "Click to select for a swap ("+letters[c]+" players can only swap with "+letters[c]+" players in this event)";
-        html+=`<td><span class="${cls}" data-r="${r}" data-t="${t}" data-c="${c}" title="${tip}">${cols[c][idx]} <span class="rtag">${letters[c]}${idx+1}</span>${srTag(cols[c][idx])}${an.heartCells.has(key)?' <span class="heart" title="Preference granted — these two asked to play together">&#10084;</span>':''}${an.repCells.has(key)?' <span class="warn" title="Part of a repeated pairing — see The Card below for details">&#9888;</span>':''}</span></td>`;
+        html+=`<td><span class="${cls}" data-r="${r}" data-t="${t}" data-c="${c}" title="${tip}">${cols[c][idx]} <span class="rtag">${letters[c]}${idx+1}</span>${r===0?srTag(cols[c][idx]):''}${an.heartCells.has(key)?' <span class="heart" title="Preference granted — these two asked to play together">&#10084;</span>':''}${an.repCells.has(key)?' <span class="warn" title="Part of a repeated pairing — see The Card below for details">&#9888;</span>':''}</span></td>`;
       }
       html+=`</tr>`;
     }
@@ -2269,14 +2269,14 @@ function buildPrintDoc(){
     const rk=(c,i)=>` <span class="pd-rk">${letters[c]}${i+1}</span>`;
     if(rd.key==="tm"){
       const findName=nm=>{ for(let c=0;c<4;c++){const i=cols[c].indexOf(nm); if(i>=0) return [c,i];} return null; };
-      const team=t=>t.filter(Boolean).map(nm=>{ const p=findName(nm); return esc(nm)+(p?rk(p[0],p[1]):"")+pdSr(nm); }).join(" &amp; ")||"&mdash;";
+      const team=t=>t.filter(Boolean).map(nm=>{ const p=findName(nm); return esc(nm)+(p?rk(p[0],p[1]):""); }).join(" &amp; ")||"&mdash;";
       h+=`<table class="pd-table"><thead><tr><th class="pd-num"></th><th class="pd-col">First Team</th><th class="pd-col">Second Team</th></tr></thead><tbody>`
         +rd.slots.map((s,k)=>{ const grp=TWOMAN.groups[s.gi]||[["",""],["",""]];
           return `<tr><td class="pd-num">${k+1}</td><td class="pd-t">${team(grp[0])}</td><td class="pd-t">${team(grp[1])}</td></tr>`; }).join("")
         +`</tbody></table>`;
     } else {
       h+=`<table class="pd-table"><thead><tr><th class="pd-num"></th>${letters.map(L=>`<th class="pd-col">${L}</th>`).join("")}</tr></thead><tbody>`
-        +rd.slots.map((s,k)=>`<tr><td class="pd-num">${k+1}</td>${def.groups[s.gi].codes.map(code=>`<td class="pd-p">${esc(cols[code/100|0][code%100])}${rk(code/100|0,code%100)}${pdSr(cols[code/100|0][code%100])}</td>`).join("")}</tr>`).join("")
+        +rd.slots.map((s,k)=>`<tr><td class="pd-num">${k+1}</td>${def.groups[s.gi].codes.map(code=>`<td class="pd-p">${esc(cols[code/100|0][code%100])}${rk(code/100|0,code%100)}${rd.key==="e0"?pdSr(cols[code/100|0][code%100]):""}</td>`).join("")}</tr>`).join("")
         +`</tbody></table>`;
     }
     /* the money rides at the foot of the card — buy-in first, details beside it */
@@ -2459,12 +2459,12 @@ function shPairings(){
       perm.forEach(gi=>{
         const grp=TWOMAN.groups[gi];
         if(!(grp[0][0]||grp[0][1]||grp[1][0]||grp[1][1])) return;
-        sec.push([grp[0][0],grp[0][1],grp[1][0],grp[1][1]].map(nm=>nm?nameCell(nm):null));
+        sec.push([grp[0][0],grp[0][1],grp[1][0],grp[1][1]].map(nm=>rankRef(cols,nm)));
       });
     } else {
       const r=+key.slice(1);
       sec.push(bannerRow(eventNames[r]+" "+holesLabel(key),4));
-      perm.forEach(gi=>sec.push(teams[r][gi].map((idx,c)=>nameCell(cols[c][idx]))));
+      perm.forEach(gi=>sec.push(teams[r][gi].map((idx,c)=>r===0?nameCell(cols[c][idx]):{v:cols[c][idx]})));
     }
     addGam(sec,key);
     /* a day's first tee time tags onto its opening event's banner title */
