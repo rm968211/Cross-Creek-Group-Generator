@@ -833,7 +833,31 @@ function checkColumns(){
   }
   return {allEqual, counts, expected};
 }
-["tA","tB","tC","tD"].forEach(id=>document.getElementById(id).addEventListener("input", ()=>{ checkColumns(); renderTwoMan(); renderRoomies(); renderSeniors(); }));
+/* an edit that keeps every column's size is a rename (a typo fix, a player
+   swap) — carry the new name through the generated teams and every name-keyed
+   pick, so nothing has to be regenerated */
+let ROSTER_PREV = roster();
+function propagateRenames(){
+  const now = roster();
+  if(ROSTER_PREV.length===4 && ROSTER_PREV.every((col,c)=>col.length===now[c].length)){
+    for(let c=0;c<4;c++) for(let i=0;i<now[c].length;i++){
+      const oldNm=ROSTER_PREV[c][i], newNm=now[c][i];
+      if(oldNm===newNm) continue;
+      if(STATE){ for(let cc=0;cc<4;cc++){ const ii=STATE.cols[cc].indexOf(oldNm); if(ii>=0){ STATE.cols[cc][ii]=newNm; break; } } }
+      TWOMAN.groups.forEach(g=>g.forEach(tm=>tm.forEach((nm,s,arr)=>{ if(nm===oldNm) arr[s]=newNm; })));
+      ROOMIES.rooms.forEach(rm=>rm.forEach((nm,s)=>{ if(nm===oldNm) rm[s]=newNm; }));
+      if(SENIORS.has(oldNm)){ SENIORS.delete(oldNm); SENIORS.add(newNm); }
+      document.querySelectorAll(".pref-row").forEach(row=>["p1","p2"].forEach(cl=>{
+        const sel=row.querySelector("."+cl);
+        const v = sel.value===oldNm ? newNm : sel.value;
+        sel.innerHTML = playerOptions(v);
+      }));
+    }
+  }
+  ROSTER_PREV = now;
+  if(STATE) renderState(false);
+}
+["tA","tB","tC","tD"].forEach(id=>document.getElementById(id).addEventListener("input", ()=>{ checkColumns(); propagateRenames(); renderTwoMan(); renderRoomies(); renderSeniors(); }));
 checkColumns();
 function allPlayers(){
   const [A,B,C,D] = roster();
@@ -1406,6 +1430,7 @@ function startNew(){
   document.getElementById("prefs").innerHTML=""; prefCount=0;
   const rb=document.getElementById("rankBalance"); rb.value=0; rb.nextElementSibling.textContent="0";
   STATE=null; SEL=null; document.getElementById("results").innerHTML="";
+  ROSTER_PREV = roster(); // fresh baseline — not a rename
   TWOMAN={name:"Two-Man Scramble", groups:[]};
   document.getElementById("tmName").value=TWOMAN.name;
   TUESDAY={name:"Hangover Red Tee Scramble", desc:"", start:""};
@@ -2034,6 +2059,7 @@ function applySetup(s){
   } else {
     TEE = null;
   }
+  ROSTER_PREV = roster(); // fresh baseline — these textarea changes are loads, not renames
   checkColumns();
   renderTwoMan();
   renderGambling();
