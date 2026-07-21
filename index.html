@@ -2472,9 +2472,16 @@ function shPairings(){
     }
     const lastRow=sec.length-1; // bottom matchup row, before gambling lines can extend the section
     addGam(sec,key);
-    /* the two-man note rides its bottom row, column F — same spot the senior
-       key takes on the Slivo Scramble */
-    if(key==="tm" && lastRow>0) sec[lastRow][5]={v:"Two guys on the right of the line play the two guys on the left",s:1};
+    /* the two-man note wraps down column F, ending on the bottom matchup row —
+       same spot the senior key takes on the Slivo Scramble */
+    if(key==="tm" && lastRow>0){
+      const words="Two guys on the right of the line play the two guys on the left".split(" ");
+      const lines=[]; let cur="";
+      words.forEach(w=>{ if(cur && cur.length+1+w.length>32){ lines.push(cur); cur=w; } else cur = cur ? cur+" "+w : w; });
+      lines.push(cur);
+      const startRow=Math.max(1, lastRow-lines.length+1);
+      lines.forEach((ln,i)=>{ if(!sec[startRow+i]) sec[startRow+i]=[]; sec[startRow+i][5]={v:ln,s:1}; });
+    }
     /* the senior-tees key: a lone bold yellow box riding the Slivo Scramble's
        bottom row, two columns right of the last name */
     if(key==="e0" && [].concat(...cols).some(nm=>SENIORS.has(nm))) sec[perm.length][5]={v:"Play from senior tees",s:8};
